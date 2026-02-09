@@ -443,57 +443,93 @@ async function seedDatabase() {
   });
 
   await storage.createShopItem({
-    title: "AirPods Case",
-    description: "Premium leather case for AirPods Pro.",
+    title: "Чехол для AirPods",
+    description: "Премиальный кожаный чехол для AirPods Pro. Защита от царапин и ударов.",
     priceCoins: 50,
     stock: 10,
     isActive: true,
-    imageUrl: "https://placehold.co/400x400?text=AirPods+Case"
+    imageUrl: "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=600&h=600&fit=crop&q=80"
   });
 
   await storage.createShopItem({
-    title: "Company Hoodie",
-    description: "Warm hoodie with company logo, sizes S-XL.",
+    title: "Фирменный худи",
+    description: "Тёплый худи с логотипом компании. Размеры S-XL. Хлопок 100%.",
     priceCoins: 120,
     stock: 5,
     isActive: true,
-    imageUrl: "https://placehold.co/400x400?text=Hoodie"
+    imageUrl: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=600&h=600&fit=crop&q=80"
   });
 
   await storage.createShopItem({
-    title: "Wireless Mouse",
-    description: "Ergonomic wireless mouse Logitech MX.",
+    title: "Беспроводная мышь",
+    description: "Эргономичная беспроводная мышь для комфортной работы в офисе.",
     priceCoins: 80,
     stock: 8,
     isActive: true,
-    imageUrl: "https://placehold.co/400x400?text=Mouse"
+    imageUrl: "https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=600&h=600&fit=crop&q=80"
   });
 
   await storage.createShopItem({
-    title: "Bluetooth Speaker",
-    description: "Portable JBL speaker for the office.",
+    title: "Bluetooth колонка",
+    description: "Портативная колонка JBL для офиса. Мощный звук и 12 часов работы.",
     priceCoins: 200,
     stock: 3,
     isActive: true,
-    imageUrl: "https://placehold.co/400x400?text=Speaker"
+    imageUrl: "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=600&h=600&fit=crop&q=80"
   });
 
   await storage.createShopItem({
-    title: "Gift Card 5000 KZT",
-    description: "Kaspi gift card, 5000 tenge.",
+    title: "Подарочная карта 5000 KZT",
+    description: "Подарочная карта Kaspi на 5000 тенге. Используйте в любом магазине.",
     priceCoins: 150,
     stock: 20,
     isActive: true,
-    imageUrl: "https://placehold.co/400x400?text=Gift+Card"
+    imageUrl: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600&h=600&fit=crop&q=80"
   });
 
   await storage.createShopItem({
-    title: "Day Off Voucher",
-    description: "Extra day off, approved by HR.",
+    title: "Дополнительный выходной",
+    description: "Сертификат на дополнительный выходной день. Согласовано с HR.",
     priceCoins: 300,
     stock: 2,
     isActive: true,
-    imageUrl: "https://placehold.co/400x400?text=Day+Off"
+    imageUrl: "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=600&h=600&fit=crop&q=80"
+  });
+
+  await storage.createShopItem({
+    title: "Термокружка",
+    description: "Стильная термокружка 450мл. Держит тепло до 6 часов.",
+    priceCoins: 60,
+    stock: 15,
+    isActive: true,
+    imageUrl: "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=600&h=600&fit=crop&q=80"
+  });
+
+  await storage.createShopItem({
+    title: "Рюкзак для ноутбука",
+    description: "Городской рюкзак с отделением для ноутбука до 15.6 дюймов.",
+    priceCoins: 250,
+    stock: 4,
+    isActive: true,
+    imageUrl: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&h=600&fit=crop&q=80"
+  });
+
+  await storage.createShopItem({
+    title: "Наушники беспроводные",
+    description: "Беспроводные наушники с шумоподавлением. До 30 часов работы.",
+    priceCoins: 350,
+    stock: 3,
+    isActive: true,
+    imageUrl: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&h=600&fit=crop&q=80"
+  });
+
+  await storage.createShopItem({
+    title: "Подписка на онлайн-курсы",
+    description: "Месяц доступа к образовательной платформе. Более 1000 курсов.",
+    priceCoins: 180,
+    stock: 10,
+    isActive: true,
+    imageUrl: "https://images.unsplash.com/photo-1501504905252-473c47e087f8?w=600&h=600&fit=crop&q=80"
   });
 
   await storage.createLesson({

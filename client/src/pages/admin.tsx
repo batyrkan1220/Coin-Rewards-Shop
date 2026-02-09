@@ -532,7 +532,16 @@ function ShopTab() {
                 )} />
               </div>
               <FormField control={form.control} name="imageUrl" render={({ field }) => (
-                <FormItem><FormLabel>Ссылка на изображение</FormLabel><FormControl><Input {...field} data-testid="input-item-image" /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>Ссылка на изображение</FormLabel>
+                  <FormControl><Input {...field} placeholder="https://..." data-testid="input-item-image" /></FormControl>
+                  <FormMessage />
+                  {field.value && field.value.trim() !== "" && (
+                    <div className="mt-2 relative aspect-square w-32 rounded-md overflow-hidden border border-border bg-muted" data-testid="img-item-preview-create">
+                      <img src={field.value} alt="Preview" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    </div>
+                  )}
+                </FormItem>
               )} />
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setShowCreate(false)}>Отмена</Button>
@@ -573,7 +582,16 @@ function ShopTab() {
                 )} />
               </div>
               <FormField control={editForm.control} name="imageUrl" render={({ field }) => (
-                <FormItem><FormLabel>Ссылка на изображение</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>Ссылка на изображение</FormLabel>
+                  <FormControl><Input {...field} placeholder="https://..." /></FormControl>
+                  <FormMessage />
+                  {field.value && field.value.trim() !== "" && (
+                    <div className="mt-2 relative aspect-square w-32 rounded-md overflow-hidden border border-border bg-muted" data-testid="img-item-preview-edit">
+                      <img src={field.value} alt="Preview" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    </div>
+                  )}
+                </FormItem>
               )} />
               <FormField control={editForm.control} name="isActive" render={({ field }) => (
                 <FormItem className="flex items-center gap-2">

@@ -42,14 +42,14 @@ client/src/
 ```
 
 ## Database Tables
-1. **users** - id, username, password, role, name, teamId, isActive, createdAt
+1. **users** - id, username, password, role, name, gender, teamId, isActive, createdAt
 2. **teams** - id, name, ropUserId, createdAt
 3. **shop_items** - id, title, description, priceCoins, stock, isActive, imageUrl, createdAt
 4. **coin_transactions** - id, userId, type (EARN/SPEND/ADJUST), amount, reason, refType, refId, createdById, createdAt
 5. **redemptions** - id, userId, shopItemId, priceCoinsSnapshot, status, comment, approvedById, approvedAt, issuedById, issuedAt, createdAt
 6. **lessons** - id, course, title, contentType, content, orderIndex, isActive, createdAt
 7. **audit_logs** - id, actorId, action, entity, entityId, details (jsonb), createdAt
-8. **invite_tokens** - id, token, teamId, createdById, usedById, expiresAt, isActive, createdAt, usedAt
+8. **invite_tokens** - id, token, teamId, createdById, usedById, expiresAt, usageLimit, usageCount, isActive, createdAt, usedAt
 
 ## Demo Credentials
 - Admin: admin@example.com / admin123
@@ -82,10 +82,19 @@ client/src/
 
 ## Invite System
 - Admin creates invite links from Admin > Invites tab
-- Invite tokens expire after 7 days, one-time use only
+- Invite tokens expire after 7 days
+- Each invite has a configurable usage limit (default 5, max 100)
+- Usage count tracked per invite, link auto-deactivates when limit reached
+- Atomic usage enforcement with DB-level concurrency safety
 - Registration via invite automatically assigns MANAGER role and specified team
 - Registration endpoint auto-logs in user after successful registration
 - Invite links format: /register/:token
+
+## Gender & Avatars
+- Users select gender (male/female) during registration
+- Avatars use DiceBear avataaars API with gender-specific styling
+- Male avatars: short hair styles, optional facial hair
+- Female avatars: long hair styles, no facial hair, optional accessories
 
 ## Profile Page
 - Users can change their display name
@@ -93,6 +102,7 @@ client/src/
 - Shows balance, team, and role information
 
 ## Recent Changes
+- 2026-02-09: Added invite usage limits (configurable per link) and gender selection at registration with gender-specific avatars
 - 2026-02-09: Added invite token system: admin creates secret registration links, registration page, admin Invites tab with create/copy/deactivate
 - 2026-02-09: Added user profile page with name change and password change
 - 2026-02-09: Added profile link to sidebar navigation

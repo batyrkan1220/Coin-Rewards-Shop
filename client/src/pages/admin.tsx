@@ -1064,14 +1064,15 @@ function InvitesTab() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedTeamId, setSelectedTeamId] = useState<string>("");
+  const [usageLimit, setUsageLimit] = useState<string>("5");
 
   const createInviteMutation = useMutation({
-    mutationFn: async (teamId: number | null) => {
+    mutationFn: async ({ teamId, usageLimit }: { teamId: number | null; usageLimit: number }) => {
       const res = await fetch("/api/invites", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ teamId }),
+        body: JSON.stringify({ teamId, usageLimit }),
       });
       if (!res.ok) {
         const error = await res.json();
@@ -1118,7 +1119,9 @@ function InvitesTab() {
   if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
 
   const getStatus = (invite: any) => {
-    if (invite.usedById) return { label: "Использована", variant: "outline" as const };
+    const limit = invite.usageLimit ?? 1;
+    const count = invite.usageCount ?? 0;
+    if (!invite.isActive && count >= limit) return { label: "Лимит исчерпан", variant: "outline" as const };
     if (!invite.isActive) return { label: "Деактивирована", variant: "destructive" as const };
     if (invite.expiresAt && new Date(invite.expiresAt) < new Date()) return { label: "Истекла", variant: "secondary" as const };
     return { label: "Активна", variant: "default" as const };
@@ -1141,8 +1144,23 @@ function InvitesTab() {
             </SelectContent>
           </Select>
         </div>
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Лимит регистраций</label>
+          <Input
+            type="number"
+            min={1}
+            max={100}
+            value={usageLimit}
+            onChange={(e) => setUsageLimit(e.target.value)}
+            className="w-[120px]"
+            data-testid="input-invite-limit"
+          />
+        </div>
         <Button
-          onClick={() => createInviteMutation.mutate(selectedTeamId && selectedTeamId !== "none" ? Number(selectedTeamId) : null)}
+          onClick={() => createInviteMutation.mutate({
+            teamId: selectedTeamId && selectedTeamId !== "none" ? Number(selectedTeamId) : null,
+            usageLimit: Math.max(1, Math.min(100, Number(usageLimit) || 1)),
+          })}
           disabled={createInviteMutation.isPending}
           data-testid="button-create-invite"
         >
@@ -1157,6 +1175,7 @@ function InvitesTab() {
             <tr>
               <th className="text-left p-3 font-medium">Ссылка</th>
               <th className="text-left p-3 font-medium">Команда</th>
+              <th className="text-left p-3 font-medium">Использовано</th>
               <th className="text-left p-3 font-medium">Статус</th>
               <th className="text-left p-3 font-medium">Истекает</th>
               <th className="text-left p-3 font-medium">Создана</th>
@@ -1167,10 +1186,13 @@ function InvitesTab() {
             {invites?.map((invite: any) => {
               const status = getStatus(invite);
               const team = teams?.find((t: any) => t.id === invite.teamId);
+              const count = invite.usageCount ?? 0;
+              const limit = invite.usageLimit ?? 1;
               return (
                 <tr key={invite.id} className="border-t" data-testid={`row-invite-${invite.id}`}>
                   <td className="p-3 font-mono text-xs max-w-[200px] truncate">{invite.token.substring(0, 16)}...</td>
                   <td className="p-3">{team?.name || "—"}</td>
+                  <td className="p-3 font-mono" data-testid={`text-invite-usage-${invite.id}`}>{count} / {limit}</td>
                   <td className="p-3">
                     <Badge variant={status.variant}>{status.label}</Badge>
                   </td>
@@ -1195,7 +1217,7 @@ function InvitesTab() {
             })}
             {(!invites || invites.length === 0) && (
               <tr>
-                <td colSpan={6} className="p-6 text-center text-muted-foreground">Нет приглашений</td>
+                <td colSpan={7} className="p-6 text-center text-muted-foreground">Нет приглашений</td>
               </tr>
             )}
           </tbody>

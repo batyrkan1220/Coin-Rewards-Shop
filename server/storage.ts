@@ -50,7 +50,7 @@ export interface IStorage {
   createInviteToken(token: InsertInviteToken): Promise<InviteToken>;
   getInviteTokenByToken(token: string): Promise<InviteToken | undefined>;
   listInviteTokens(): Promise<InviteToken[]>;
-  markInviteTokenUsed(id: number, usedById: number): Promise<InviteToken>;
+  incrementInviteTokenUsage(id: number, usedById: number): Promise<InviteToken>;
   deactivateInviteToken(id: number): Promise<InviteToken>;
 }
 
@@ -271,11 +271,29 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(inviteTokens).orderBy(desc(inviteTokens.createdAt));
   }
 
-  async markInviteTokenUsed(id: number, usedById: number): Promise<InviteToken> {
-    const [result] = await db.update(inviteTokens)
-      .set({ usedById, usedAt: new Date(), isActive: false })
-      .where(eq(inviteTokens.id, id))
+  async incrementInviteTokenUsage(id: number, usedById: number): Promise<InviteToken> {
+    const results = await db.update(inviteTokens)
+      .set({
+        usageCount: sql`${inviteTokens.usageCount} + 1`,
+        usedAt: new Date(),
+      })
+      .where(and(
+        eq(inviteTokens.id, id),
+        eq(inviteTokens.isActive, true),
+        sql`${inviteTokens.usageCount} < ${inviteTokens.usageLimit}`
+      ))
       .returning();
+    if (results.length === 0) {
+      throw new Error("Лимит регистраций по ссылке исчерпан");
+    }
+    const result = results[0];
+    if (result.usageLimit && result.usageCount !== null && result.usageCount >= result.usageLimit) {
+      const [deactivated] = await db.update(inviteTokens)
+        .set({ isActive: false })
+        .where(eq(inviteTokens.id, id))
+        .returning();
+      return deactivated;
+    }
     return result;
   }
 

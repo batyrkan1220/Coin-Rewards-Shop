@@ -115,7 +115,10 @@ export default function ProfilePage() {
           <CardContent className="pt-6">
             <div className="flex flex-col items-center gap-4">
               <Avatar className="h-20 w-20 border-2 border-border">
-                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}`} />
+                <AvatarImage src={user?.gender === "female"
+                  ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}&top=longHairStraight,longHairBob,longHairCurly,longHairMiaWallace&accessories=prescription01,prescription02,round&facialHair=blank`
+                  : `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}&top=shortHairShortFlat,shortHairShortWaved,shortHairShortCurly,shortHairDreads01&facialHair=beardLight,beardMedium,moustacheFancy,blank`
+                } />
                 <AvatarFallback className="text-2xl">{user?.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div className="text-center">

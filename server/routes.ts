@@ -399,7 +399,7 @@ export async function registerRoutes(
 
   app.post(api.invites.create.path, requireRole([ROLES.ADMIN]), async (req, res) => {
     try {
-      const { teamId } = api.invites.create.input.parse(req.body);
+      const { teamId, usageLimit } = api.invites.create.input.parse(req.body);
       const token = randomBytes(24).toString("hex");
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       const invite = await storage.createInviteToken({
@@ -408,9 +408,11 @@ export async function registerRoutes(
         createdById: req.user!.id,
         usedById: null,
         expiresAt,
+        usageLimit: usageLimit ?? 1,
+        usageCount: 0,
         isActive: true,
       });
-      await audit(req.user!.id, "CREATE_INVITE", "inviteToken", invite.id, { teamId });
+      await audit(req.user!.id, "CREATE_INVITE", "inviteToken", invite.id, { teamId, usageLimit: usageLimit ?? 1 });
       res.status(201).json(invite);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
@@ -426,8 +428,10 @@ export async function registerRoutes(
     if (invite.expiresAt && new Date(invite.expiresAt) < new Date()) {
       return res.status(400).json({ message: "Ссылка истекла" });
     }
-    if (invite.usedById) {
-      return res.status(400).json({ message: "Ссылка уже использована" });
+    const limit = invite.usageLimit ?? 1;
+    const count = invite.usageCount ?? 0;
+    if (count >= limit) {
+      return res.status(400).json({ message: "Лимит регистраций по ссылке исчерпан" });
     }
     res.json({ valid: true, teamId: invite.teamId });
   });
@@ -450,8 +454,10 @@ export async function registerRoutes(
       if (invite.expiresAt && new Date(invite.expiresAt) < new Date()) {
         return res.status(400).json({ message: "Ссылка для регистрации истекла" });
       }
-      if (invite.usedById) {
-        return res.status(400).json({ message: "Ссылка уже использована" });
+      const limit = invite.usageLimit ?? 1;
+      const count = invite.usageCount ?? 0;
+      if (count >= limit) {
+        return res.status(400).json({ message: "Лимит регистраций по ссылке исчерпан" });
       }
 
       const existing = await storage.getUserByUsername(input.username);
@@ -464,13 +470,18 @@ export async function registerRoutes(
         username: input.username,
         password: hashedPassword,
         name: input.name,
+        gender: input.gender,
         role: ROLES.MANAGER,
         isActive: true,
         teamId: invite.teamId,
       });
 
-      await storage.markInviteTokenUsed(invite.id, user.id);
-      await audit(user.id, "REGISTER_VIA_INVITE", "user", user.id, { inviteId: invite.id });
+      try {
+        await storage.incrementInviteTokenUsage(invite.id, user.id);
+      } catch (e: any) {
+        return res.status(400).json({ message: e.message || "Ошибка использования ссылки" });
+      }
+      await audit(user.id, "REGISTER_VIA_INVITE", "user", user.id, { inviteId: invite.id, gender: input.gender });
 
       req.logIn(user, (err) => {
         if (err) return res.status(500).json({ message: "Ошибка авторизации после регистрации" });

@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -8,6 +7,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@shared/routes";
 import { Loader2, Coins, AlertCircle } from "lucide-react";
@@ -16,6 +16,7 @@ const registerSchema = z.object({
   username: z.string().min(1, "Обязательное поле"),
   password: z.string().min(3, "Минимум 3 символа"),
   name: z.string().min(1, "Обязательное поле"),
+  gender: z.enum(["male", "female"], { required_error: "Выберите пол" }),
 });
 
 type RegisterData = z.infer<typeof registerSchema>;
@@ -43,7 +44,7 @@ export default function RegisterPage() {
 
   const form = useForm<RegisterData>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { username: "", password: "", name: "" },
+    defaultValues: { username: "", password: "", name: "", gender: undefined },
   });
 
   const registerMutation = useMutation({
@@ -170,6 +171,27 @@ export default function RegisterPage() {
                     <FormControl>
                       <Input type="password" placeholder="Минимум 3 символа" data-testid="input-register-password" {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="gender"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Пол</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-register-gender">
+                          <SelectValue placeholder="Выберите пол" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="male">Мужской</SelectItem>
+                        <SelectItem value="female">Женский</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

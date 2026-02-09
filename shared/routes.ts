@@ -329,6 +329,7 @@ export const api = {
       path: "/api/invites" as const,
       input: z.object({
         teamId: z.number().nullable().optional(),
+        usageLimit: z.number().min(1).max(100).optional(),
       }),
       responses: {
         201: z.custom<typeof inviteTokens.$inferSelect>(),
@@ -360,6 +361,7 @@ export const api = {
       username: z.string().min(1),
       password: z.string().min(3),
       name: z.string().min(1),
+      gender: z.enum(["male", "female"]),
     }),
     responses: {
       201: z.custom<typeof users.$inferSelect>(),

@@ -48,10 +48,11 @@ export const teams = pgTable("teams", {
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(), // Acts as email/login
+  username: text("username").notNull().unique(),
   password: text("password").notNull(),
   role: text("role").notNull().default(ROLES.MANAGER),
   name: text("name").notNull(),
+  gender: text("gender"),
   teamId: integer("team_id").references(() => teams.id),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
@@ -114,6 +115,8 @@ export const inviteTokens = pgTable("invite_tokens", {
   usedById: integer("used_by_id").references(() => users.id),
   usedAt: timestamp("used_at"),
   expiresAt: timestamp("expires_at"),
+  usageLimit: integer("usage_limit").default(1),
+  usageCount: integer("usage_count").default(0),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });

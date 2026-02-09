@@ -24,19 +24,20 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
   const { data: balance } = useBalance(user?.id);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const navItems = [
-    { icon: Home, label: "Главная", href: "/" },
-    { icon: ShoppingBag, label: "Магазин", href: "/shop" },
-    { icon: BookOpen, label: "Уроки", href: "/lessons" },
-    { icon: FileText, label: "Мои заявки", href: "/requests" },
-  ];
-
-  if (user?.role === ROLES.ROP || user?.role === ROLES.ADMIN) {
-    navItems.push({ icon: Users, label: "Команда", href: "/team" });
-  }
+  const navItems: { icon: any; label: string; href: string }[] = [];
 
   if (user?.role === ROLES.ADMIN) {
+    navItems.push({ icon: Home, label: "Главная", href: "/" });
+    navItems.push({ icon: Users, label: "Команда", href: "/team" });
     navItems.push({ icon: Settings, label: "Админ", href: "/admin" });
+  } else {
+    navItems.push({ icon: Home, label: "Главная", href: "/" });
+    navItems.push({ icon: ShoppingBag, label: "Магазин", href: "/shop" });
+    navItems.push({ icon: BookOpen, label: "Уроки", href: "/lessons" });
+    navItems.push({ icon: FileText, label: "Мои заявки", href: "/requests" });
+    if (user?.role === ROLES.ROP) {
+      navItems.push({ icon: Users, label: "Команда", href: "/team" });
+    }
   }
 
   const NavContent = () => (

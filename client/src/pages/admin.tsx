@@ -2,6 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { ROLES } from "@shared/schema";
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useShopItems, useCreateShopItem, useUpdateShopItem } from "@/hooks/use-shop";
@@ -22,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Pencil, Check, X, Package, Users, BookOpen, ShoppingBag, List, Shield, ArrowUpRight, ArrowDownLeft, Trash2, Video, FileText, Link as LinkIcon, ImageOff } from "lucide-react";
+import { Loader2, Plus, Pencil, Check, X, Package, Users, BookOpen, ShoppingBag, List, Shield, ArrowUpRight, ArrowDownLeft, Trash2, Video, FileText, Link as LinkIcon, ImageOff, Copy, LinkIcon as Link2Icon, XCircle } from "lucide-react";
 import { ImageCropUploader } from "@/components/image-crop-uploader";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -87,6 +88,7 @@ export default function AdminPage() {
           <TabsTrigger value="redemptions" data-testid="tab-redemptions"><Package className="w-4 h-4 mr-1" /> Заявки</TabsTrigger>
           <TabsTrigger value="transactions" data-testid="tab-transactions"><List className="w-4 h-4 mr-1" /> Транзакции</TabsTrigger>
           <TabsTrigger value="audit" data-testid="tab-audit"><Shield className="w-4 h-4 mr-1" /> Журнал</TabsTrigger>
+          <TabsTrigger value="invites" data-testid="tab-invites"><Link2Icon className="w-4 h-4 mr-1" /> Приглашения</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users"><UsersTab /></TabsContent>
@@ -96,6 +98,7 @@ export default function AdminPage() {
         <TabsContent value="redemptions"><RedemptionsTab /></TabsContent>
         <TabsContent value="transactions"><TransactionsTab /></TabsContent>
         <TabsContent value="audit"><AuditTab /></TabsContent>
+        <TabsContent value="invites"><InvitesTab /></TabsContent>
       </Tabs>
     </div>
   );
@@ -1041,6 +1044,160 @@ function AuditTab() {
                 <td className="p-3 text-muted-foreground">{log.createdAt ? format(new Date(log.createdAt), "d MMM yyyy HH:mm", { locale: ru }) : "—"}</td>
               </tr>
             ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function InvitesTab() {
+  const { data: invites, isLoading } = useQuery({
+    queryKey: ["/api/invites"],
+    queryFn: async () => {
+      const res = await fetch("/api/invites", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load invites");
+      return await res.json();
+    },
+  });
+  const { data: teams } = useTeams();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("");
+
+  const createInviteMutation = useMutation({
+    mutationFn: async (teamId: number | null) => {
+      const res = await fetch("/api/invites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ teamId }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Ошибка");
+      }
+      return await res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invites"] });
+      const url = `${window.location.origin}/register/${data.token}`;
+      navigator.clipboard.writeText(url).then(() => {
+        toast({ title: "Ссылка создана и скопирована", description: url });
+      }).catch(() => {
+        toast({ title: "Ссылка создана", description: url });
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Ошибка", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deactivateMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/invites/${id}/deactivate`, {
+        method: "PATCH",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Ошибка деактивации");
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invites"] });
+      toast({ title: "Ссылка деактивирована" });
+    },
+  });
+
+  const copyUrl = (token: string) => {
+    const url = `${window.location.origin}/register/${token}`;
+    navigator.clipboard.writeText(url).then(() => {
+      toast({ title: "Ссылка скопирована" });
+    });
+  };
+
+  if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+
+  const getStatus = (invite: any) => {
+    if (invite.usedById) return { label: "Использована", variant: "outline" as const };
+    if (!invite.isActive) return { label: "Деактивирована", variant: "destructive" as const };
+    if (invite.expiresAt && new Date(invite.expiresAt) < new Date()) return { label: "Истекла", variant: "secondary" as const };
+    return { label: "Активна", variant: "default" as const };
+  };
+
+  return (
+    <div className="space-y-4 mt-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Команда (необязательно)</label>
+          <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
+            <SelectTrigger className="w-[200px]" data-testid="select-invite-team">
+              <SelectValue placeholder="Без команды" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Без команды</SelectItem>
+              {teams?.map((t: any) => (
+                <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button
+          onClick={() => createInviteMutation.mutate(selectedTeamId && selectedTeamId !== "none" ? Number(selectedTeamId) : null)}
+          disabled={createInviteMutation.isPending}
+          data-testid="button-create-invite"
+        >
+          {createInviteMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+          Создать ссылку
+        </Button>
+      </div>
+
+      <div className="border rounded-md overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/50">
+            <tr>
+              <th className="text-left p-3 font-medium">Ссылка</th>
+              <th className="text-left p-3 font-medium">Команда</th>
+              <th className="text-left p-3 font-medium">Статус</th>
+              <th className="text-left p-3 font-medium">Истекает</th>
+              <th className="text-left p-3 font-medium">Создана</th>
+              <th className="text-left p-3 font-medium">Действия</th>
+            </tr>
+          </thead>
+          <tbody>
+            {invites?.map((invite: any) => {
+              const status = getStatus(invite);
+              const team = teams?.find((t: any) => t.id === invite.teamId);
+              return (
+                <tr key={invite.id} className="border-t" data-testid={`row-invite-${invite.id}`}>
+                  <td className="p-3 font-mono text-xs max-w-[200px] truncate">{invite.token.substring(0, 16)}...</td>
+                  <td className="p-3">{team?.name || "—"}</td>
+                  <td className="p-3">
+                    <Badge variant={status.variant}>{status.label}</Badge>
+                  </td>
+                  <td className="p-3 text-muted-foreground">{invite.expiresAt ? format(new Date(invite.expiresAt), "d MMM yyyy", { locale: ru }) : "—"}</td>
+                  <td className="p-3 text-muted-foreground">{invite.createdAt ? format(new Date(invite.createdAt), "d MMM yyyy HH:mm", { locale: ru }) : "—"}</td>
+                  <td className="p-3">
+                    <div className="flex items-center gap-1">
+                      {status.label === "Активна" && (
+                        <>
+                          <Button size="icon" variant="ghost" onClick={() => copyUrl(invite.token)} data-testid={`button-copy-invite-${invite.id}`}>
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" onClick={() => deactivateMutation.mutate(invite.id)} data-testid={`button-deactivate-invite-${invite.id}`}>
+                            <XCircle className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+            {(!invites || invites.length === 0) && (
+              <tr>
+                <td colSpan={6} className="p-6 text-center text-muted-foreground">Нет приглашений</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

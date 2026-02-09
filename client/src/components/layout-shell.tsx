@@ -10,7 +10,8 @@ import {
   Settings, 
   LogOut,
   Menu,
-  Coins
+  Coins,
+  UserCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -72,7 +73,7 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
       </div>
 
       <div className="mt-auto p-6 border-t border-border/50">
-        <div className="flex items-center gap-3 mb-4">
+        <Link href="/profile" className="flex items-center gap-3 mb-4 p-2 rounded-xl transition-all duration-200 hover:bg-muted cursor-pointer" onClick={() => setIsMobileMenuOpen(false)} data-testid="link-profile">
           <Avatar className="h-10 w-10 border border-border">
             <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}`} />
             <AvatarFallback>{user?.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
@@ -81,8 +82,8 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
             <p className="text-sm font-medium truncate">{user?.name}</p>
             <p className="text-xs text-muted-foreground truncate">{user?.role === "ADMIN" ? "Админ" : user?.role === "ROP" ? "РОП" : "Менеджер"}</p>
           </div>
-        </div>
-        <Button variant="outline" className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20" onClick={() => logout()}>
+        </Link>
+        <Button variant="outline" className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20" onClick={() => logout()} data-testid="button-logout">
           <LogOut className="w-4 h-4" />
           Выйти
         </Button>

@@ -17,6 +17,8 @@ import LessonsPage from "@/pages/lessons";
 import TeamPage from "@/pages/team";
 import RequestsPage from "@/pages/requests";
 import AdminPage from "@/pages/admin";
+import RegisterPage from "@/pages/register";
+import ProfilePage from "@/pages/profile";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, isLoading } = useAuth();
@@ -52,6 +54,7 @@ function Router() {
     <Switch>
       <Route path="/" component={HomePage} />
       <Route path="/auth" component={AuthPage} />
+      <Route path="/register/:token" component={RegisterPage} />
       
       {/* Protected Routes */}
       <Route path="/dashboard">
@@ -71,6 +74,9 @@ function Router() {
       </Route>
       <Route path="/admin">
         <ProtectedRoute component={AdminPage} />
+      </Route>
+      <Route path="/profile">
+        <ProtectedRoute component={ProfilePage} />
       </Route>
 
       <Route component={NotFound} />

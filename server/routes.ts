@@ -872,53 +872,99 @@ export async function registerRoutes(
 }
 
 async function seedDatabase() {
+  const plans = await storage.listPlans();
+  let basePlan, proPlan, enterprisePlan;
+
+  if (plans.length === 0) {
+    console.log("Creating subscription plans...");
+    basePlan = await storage.createPlan({
+      name: "Базовый",
+      maxUsers: 20,
+      priceMonthly: 0,
+      features: { shop: true, lessons: true },
+      isActive: true,
+    });
+
+    proPlan = await storage.createPlan({
+      name: "Профессиональный",
+      maxUsers: 100,
+      priceMonthly: 5000,
+      features: { shop: true, lessons: true, analytics: true },
+      isActive: true,
+    });
+
+    enterprisePlan = await storage.createPlan({
+      name: "Корпоративный",
+      maxUsers: 500,
+      priceMonthly: 15000,
+      features: { shop: true, lessons: true, analytics: true, api: true },
+      isActive: true,
+    });
+  } else {
+    basePlan = plans.find(p => p.name === "Базовый") || plans[0];
+    proPlan = plans.find(p => p.name === "Профессиональный");
+    enterprisePlan = plans.find(p => p.name === "Корпоративный");
+  }
+
+  const existingSuperAdmin = await storage.getUserByUsername("superadmin@platform.com");
+  if (!existingSuperAdmin) {
+    console.log("Creating Super Admin account...");
+    const superAdminPwd = await hashPassword("superadmin123");
+    await storage.createUser({
+      username: "superadmin@platform.com",
+      password: superAdminPwd,
+      name: "Супер Админ",
+      role: ROLES.SUPER_ADMIN,
+      isActive: true,
+      teamId: null,
+      companyId: null,
+    });
+  }
+
+  const allCompanies = await storage.listCompanies();
+  const existingAdmin = await storage.getUserByUsername("admin@example.com");
+  if (existingAdmin && !existingAdmin.companyId && allCompanies.length === 0) {
+    console.log("Migrating existing users to multi-tenant structure...");
+    const company = await storage.createCompany({
+      name: "Демо компания",
+      subdomain: "demo",
+      planId: basePlan.id,
+      isActive: true,
+      supportEmail: null,
+    });
+
+    const usersList = await storage.listUsers();
+    for (const u of usersList) {
+      if (u.role !== ROLES.SUPER_ADMIN && !u.companyId) {
+        await storage.updateUser(u.id, { companyId: company.id });
+      }
+    }
+
+    const teams = await storage.listTeams(company.id);
+    if (teams.length === 0) {
+      await storage.createTeam({ name: "Sales A", companyId: company.id });
+      await storage.createTeam({ name: "Sales B", companyId: company.id });
+    }
+  }
+
   const usersList = await storage.listUsers();
-  if (usersList.length > 0) return;
+  if (usersList.length > 1) return;
 
   console.log("Seeding database...");
 
-  const basePlan = await storage.createPlan({
-    name: "Базовый",
-    maxUsers: 20,
-    priceMonthly: 0,
-    features: { shop: true, lessons: true },
-    isActive: true,
-  });
-
-  const proPlan = await storage.createPlan({
-    name: "Профессиональный",
-    maxUsers: 100,
-    priceMonthly: 5000,
-    features: { shop: true, lessons: true, analytics: true },
-    isActive: true,
-  });
-
-  const enterprisePlan = await storage.createPlan({
-    name: "Корпоративный",
-    maxUsers: 500,
-    priceMonthly: 15000,
-    features: { shop: true, lessons: true, analytics: true, api: true },
-    isActive: true,
-  });
-
-  const demoCompany = await storage.createCompany({
-    name: "Демо компания",
-    subdomain: "demo",
-    planId: basePlan.id,
-    isActive: true,
-    supportEmail: null,
-  });
-
-  const superAdminPwd = await hashPassword("superadmin123");
-  await storage.createUser({
-    username: "superadmin@platform.com",
-    password: superAdminPwd,
-    name: "Супер Админ",
-    role: ROLES.SUPER_ADMIN,
-    isActive: true,
-    teamId: null,
-    companyId: null,
-  });
+  let demoCompany;
+  const companiesAfterMigration = await storage.listCompanies();
+  if (companiesAfterMigration.length === 0) {
+    demoCompany = await storage.createCompany({
+      name: "Демо компания",
+      subdomain: "demo",
+      planId: basePlan.id,
+      isActive: true,
+      supportEmail: null,
+    });
+  } else {
+    demoCompany = companiesAfterMigration[0];
+  }
 
   const teamA = await storage.createTeam({ name: "Sales A", companyId: demoCompany.id });
   const teamB = await storage.createTeam({ name: "Sales B", companyId: demoCompany.id });

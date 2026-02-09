@@ -30,7 +30,9 @@ client/src/
     lessons.tsx    - Lessons library grouped by course
     team.tsx       - Team management (coin ops: earn, adjust, zero-out)
     requests.tsx   - Redemption requests with approval workflow
-    admin.tsx      - Admin panel with 7 tabs (Users, Teams, Shop, Lessons, Redemptions, Transactions, Audit)
+    admin.tsx      - Admin panel with 8 tabs (Users, Teams, Shop, Lessons, Redemptions, Transactions, Audit, Invites)
+    register.tsx   - Registration page via invite token
+    profile.tsx    - User profile with name/password change
   hooks/
     use-auth.ts, use-team.ts, use-shop.ts, use-transactions.ts, use-redemptions.ts, use-lessons.ts, use-audit.ts
   components/
@@ -47,6 +49,7 @@ client/src/
 5. **redemptions** - id, userId, shopItemId, priceCoinsSnapshot, status, comment, approvedById, approvedAt, issuedById, issuedAt, createdAt
 6. **lessons** - id, course, title, contentType, content, orderIndex, isActive, createdAt
 7. **audit_logs** - id, actorId, action, entity, entityId, details (jsonb), createdAt
+8. **invite_tokens** - id, token, teamId, createdById, usedById, expiresAt, isActive, createdAt, usedAt
 
 ## Demo Credentials
 - Admin: admin@example.com / admin123
@@ -77,8 +80,23 @@ client/src/
 - Component: client/src/components/image-crop-uploader.tsx
 - Object storage integration: server/replit_integrations/object_storage/
 
+## Invite System
+- Admin creates invite links from Admin > Invites tab
+- Invite tokens expire after 7 days, one-time use only
+- Registration via invite automatically assigns MANAGER role and specified team
+- Registration endpoint auto-logs in user after successful registration
+- Invite links format: /register/:token
+
+## Profile Page
+- Users can change their display name
+- Password change requires current password verification
+- Shows balance, team, and role information
+
 ## Recent Changes
+- 2026-02-09: Added invite token system: admin creates secret registration links, registration page, admin Invites tab with create/copy/deactivate
+- 2026-02-09: Added user profile page with name change and password change
+- 2026-02-09: Added profile link to sidebar navigation
 - 2026-02-09: Added image upload with 1:1 crop to admin shop form (create and edit), using Replit Object Storage + react-easy-crop
 - 2026-02-09: Added VIDEO/ARTICLE/LINK content types for lessons, embedded YouTube player, article viewer, lesson detail page within platform, admin CRUD for lessons with delete, content type selector in admin
 - 2026-02-09: Transaction approval workflow, balance filters by APPROVED status, dashboard stats filter APPROVED only
-- 2026-02-09: Fixed storage.ts class structure bug, added full Admin CRUD routes, expanded admin page to 7 tabs, added zero-out functionality, added audit log viewing
+- 2026-02-09: Fixed storage.ts class structure bug, added full Admin CRUD routes, expanded admin page to 8 tabs, added zero-out functionality, added audit log viewing

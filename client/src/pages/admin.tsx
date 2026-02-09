@@ -514,6 +514,7 @@ function ShopTab() {
             <form onSubmit={form.handleSubmit((values) => {
               createItem(values, {
                 onSuccess: () => { toast({ title: "Товар создан" }); setShowCreate(false); form.reset(); },
+                onError: (err: any) => { toast({ title: "Ошибка", description: err.message || "Не удалось создать товар", variant: "destructive" }); },
               });
             })} className="space-y-4">
               <FormField control={form.control} name="title" render={({ field }) => (
@@ -554,6 +555,7 @@ function ShopTab() {
             <form onSubmit={editForm.handleSubmit((values) => {
               updateItem({ id: editingItem.id, ...values }, {
                 onSuccess: () => { toast({ title: "Товар обновлен" }); setEditingItem(null); },
+                onError: (err: any) => { toast({ title: "Ошибка", description: err.message || "Не удалось обновить товар", variant: "destructive" }); },
               });
             })} className="space-y-4">
               <FormField control={editForm.control} name="title" render={({ field }) => (

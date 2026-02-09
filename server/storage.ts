@@ -20,17 +20,17 @@ export interface IStorage {
 
   getTeam(id: number): Promise<Team | undefined>;
   createTeam(team: InsertTeam): Promise<Team>;
-  updateTeam(id: number, updates: Partial<InsertTeam>): Promise<Team>;
+  updateTeam(id: number, updates: Partial<InsertTeam>, companyId?: number): Promise<Team>;
   listTeams(companyId?: number): Promise<Team[]>;
 
   listShopItems(companyId?: number): Promise<ShopItem[]>;
   getShopItem(id: number): Promise<ShopItem | undefined>;
   createShopItem(item: InsertShopItem): Promise<ShopItem>;
-  updateShopItem(id: number, updates: Partial<InsertShopItem>): Promise<ShopItem>;
+  updateShopItem(id: number, updates: Partial<InsertShopItem>, companyId?: number): Promise<ShopItem>;
 
   createTransaction(tx: InsertTransaction): Promise<CoinTransaction>;
   getTransaction(id: number): Promise<CoinTransaction | undefined>;
-  updateTransactionStatus(id: number, status: string): Promise<CoinTransaction>;
+  updateTransactionStatus(id: number, status: string, companyId?: number): Promise<CoinTransaction>;
   getTransactionsByUser(userId: number): Promise<CoinTransaction[]>;
   getAllTransactions(companyId?: number): Promise<CoinTransaction[]>;
   getPendingTransactions(companyId?: number): Promise<CoinTransaction[]>;
@@ -38,13 +38,13 @@ export interface IStorage {
 
   createRedemption(redemption: InsertRedemption): Promise<Redemption>;
   getRedemptions(scope: 'my' | 'team' | 'all', userId: number, teamId?: number | null, companyId?: number): Promise<(Redemption & { item: ShopItem, user: User })[]>;
-  updateRedemptionStatus(id: number, status: string, actorId: number): Promise<Redemption>;
+  updateRedemptionStatus(id: number, status: string, actorId: number, companyId?: number): Promise<Redemption>;
 
   listLessons(companyId?: number): Promise<Lesson[]>;
   getLesson(id: number): Promise<Lesson | undefined>;
   createLesson(lesson: InsertLesson): Promise<Lesson>;
-  updateLesson(id: number, updates: Partial<InsertLesson>): Promise<Lesson>;
-  deleteLesson(id: number): Promise<void>;
+  updateLesson(id: number, updates: Partial<InsertLesson>, companyId?: number): Promise<Lesson>;
+  deleteLesson(id: number, companyId?: number): Promise<void>;
 
   createAuditLog(log: { actorId: number; action: string; entity: string; entityId?: number; details?: any; companyId?: number | null }): Promise<AuditLog>;
   listAuditLogs(companyId?: number): Promise<(AuditLog & { actor: User | null })[]>;
@@ -115,8 +115,10 @@ export class DatabaseStorage implements IStorage {
     return team;
   }
 
-  async updateTeam(id: number, updates: Partial<InsertTeam>): Promise<Team> {
-    const [team] = await db.update(teams).set(updates).where(eq(teams.id, id)).returning();
+  async updateTeam(id: number, updates: Partial<InsertTeam>, companyId?: number): Promise<Team> {
+    const conditions = [eq(teams.id, id)];
+    if (companyId) conditions.push(eq(teams.companyId, companyId));
+    const [team] = await db.update(teams).set(updates).where(and(...conditions)).returning();
     return team;
   }
 
@@ -144,8 +146,10 @@ export class DatabaseStorage implements IStorage {
     return item;
   }
 
-  async updateShopItem(id: number, updates: Partial<InsertShopItem>): Promise<ShopItem> {
-    const [item] = await db.update(shopItems).set(updates).where(eq(shopItems.id, id)).returning();
+  async updateShopItem(id: number, updates: Partial<InsertShopItem>, companyId?: number): Promise<ShopItem> {
+    const conditions = [eq(shopItems.id, id)];
+    if (companyId) conditions.push(eq(shopItems.companyId, companyId));
+    const [item] = await db.update(shopItems).set(updates).where(and(...conditions)).returning();
     return item;
   }
 
@@ -159,8 +163,10 @@ export class DatabaseStorage implements IStorage {
     return tx;
   }
 
-  async updateTransactionStatus(id: number, status: string): Promise<CoinTransaction> {
-    const [tx] = await db.update(coinTransactions).set({ status }).where(eq(coinTransactions.id, id)).returning();
+  async updateTransactionStatus(id: number, status: string, companyId?: number): Promise<CoinTransaction> {
+    const conditions = [eq(coinTransactions.id, id)];
+    if (companyId) conditions.push(eq(coinTransactions.companyId, companyId));
+    const [tx] = await db.update(coinTransactions).set({ status }).where(and(...conditions)).returning();
     return tx;
   }
 
@@ -252,7 +258,7 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async updateRedemptionStatus(id: number, status: string, actorId: number): Promise<Redemption> {
+  async updateRedemptionStatus(id: number, status: string, actorId: number, companyId?: number): Promise<Redemption> {
     const updates: any = { status };
     if (status === REDEMPTION_STATUS.APPROVED) {
       updates.approvedById = actorId;
@@ -262,9 +268,11 @@ export class DatabaseStorage implements IStorage {
       updates.issuedAt = new Date();
     }
 
+    const conditions = [eq(redemptions.id, id)];
+    if (companyId) conditions.push(eq(redemptions.companyId, companyId));
     const [redemption] = await db.update(redemptions)
       .set(updates)
-      .where(eq(redemptions.id, id))
+      .where(and(...conditions))
       .returning();
     return redemption;
   }
@@ -286,13 +294,17 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async updateLesson(id: number, updates: Partial<InsertLesson>): Promise<Lesson> {
-    const [result] = await db.update(lessons).set(updates).where(eq(lessons.id, id)).returning();
+  async updateLesson(id: number, updates: Partial<InsertLesson>, companyId?: number): Promise<Lesson> {
+    const conditions = [eq(lessons.id, id)];
+    if (companyId) conditions.push(eq(lessons.companyId, companyId));
+    const [result] = await db.update(lessons).set(updates).where(and(...conditions)).returning();
     return result;
   }
 
-  async deleteLesson(id: number): Promise<void> {
-    await db.delete(lessons).where(eq(lessons.id, id));
+  async deleteLesson(id: number, companyId?: number): Promise<void> {
+    const conditions = [eq(lessons.id, id)];
+    if (companyId) conditions.push(eq(lessons.companyId, companyId));
+    await db.delete(lessons).where(and(...conditions));
   }
 
   async createAuditLog(log: { actorId: number; action: string; entity: string; entityId?: number; details?: any; companyId?: number | null }): Promise<AuditLog> {

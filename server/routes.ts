@@ -187,7 +187,7 @@ export async function registerRoutes(
   app.patch(api.shop.update.path, requireRole([ROLES.ADMIN]), async (req, res) => {
     try {
       const input = api.shop.update.input.parse(req.body);
-      const item = await storage.updateShopItem(Number(req.params.id), input);
+      const item = await storage.updateShopItem(Number(req.params.id), input, getCompanyId(req));
       await audit(req.user!.id, "UPDATE_SHOP_ITEM", "shopItem", item.id, input, getCompanyId(req));
       res.json(item);
     } catch (err) {
@@ -258,7 +258,7 @@ export async function registerRoutes(
       const redemptionId = Number(req.params.id);
       const user = req.user!;
 
-      const updated = await storage.updateRedemptionStatus(redemptionId, status, user.id);
+      const updated = await storage.updateRedemptionStatus(redemptionId, status, user.id, getCompanyId(req));
 
       if (status === REDEMPTION_STATUS.REJECTED) {
         await storage.createTransaction({
@@ -375,7 +375,7 @@ export async function registerRoutes(
       if (tx.status !== TRANSACTION_STATUS.PENDING) {
         return res.status(400).json({ message: "Можно изменить статус только ожидающих транзакций" });
       }
-      const updated = await storage.updateTransactionStatus(id, status);
+      const updated = await storage.updateTransactionStatus(id, status, getCompanyId(req));
       await audit(req.user!.id, status === TRANSACTION_STATUS.APPROVED ? "APPROVE_TRANSACTION" : "REJECT_TRANSACTION", "coinTransaction", id, {
         userId: tx.userId, amount: tx.amount, type: tx.type
       }, getCompanyId(req));
@@ -413,7 +413,7 @@ export async function registerRoutes(
   app.patch(api.lessons.update.path, requireRole([ROLES.ADMIN]), async (req, res) => {
     try {
       const input = api.lessons.update.input.parse(req.body);
-      const lesson = await storage.updateLesson(Number(req.params.id), input);
+      const lesson = await storage.updateLesson(Number(req.params.id), input, getCompanyId(req));
       await audit(req.user!.id, "UPDATE_LESSON", "lesson", lesson.id, input, getCompanyId(req));
       res.json(lesson);
     } catch (err) {
@@ -425,7 +425,7 @@ export async function registerRoutes(
   app.delete("/api/lessons/:id", requireRole([ROLES.ADMIN]), async (req, res) => {
     const lesson = await storage.getLesson(Number(req.params.id));
     if (!lesson) return res.status(404).json({ message: "Урок не найден" });
-    await storage.deleteLesson(Number(req.params.id));
+    await storage.deleteLesson(Number(req.params.id), getCompanyId(req));
     await audit(req.user!.id, "DELETE_LESSON", "lesson", lesson.id, { title: lesson.title }, getCompanyId(req));
     res.json({ success: true });
   });
@@ -508,7 +508,7 @@ export async function registerRoutes(
   app.patch(api.teams.update.path, requireRole([ROLES.ADMIN]), async (req, res) => {
     try {
       const input = api.teams.update.input.parse(req.body);
-      const team = await storage.updateTeam(Number(req.params.id), input);
+      const team = await storage.updateTeam(Number(req.params.id), input, getCompanyId(req));
       await audit(req.user!.id, "UPDATE_TEAM", "team", team.id, input, getCompanyId(req));
       res.json(team);
     } catch (err) {

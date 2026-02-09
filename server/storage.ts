@@ -1,10 +1,12 @@
 import { db } from "./db";
 import {
   users, teams, shopItems, coinTransactions, redemptions, lessons, auditLogs, inviteTokens,
+  companies, subscriptionPlans,
   type User, type InsertUser, type Team, type InsertTeam,
   type ShopItem, type InsertShopItem, type CoinTransaction, type InsertTransaction,
   type Redemption, type InsertRedemption, type Lesson, type InsertLesson,
   type AuditLog, type InviteToken, type InsertInviteToken,
+  type Company, type InsertCompany, type SubscriptionPlan, type InsertPlan,
   REDEMPTION_STATUS, TRANSACTION_STATUS
 } from "@shared/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
@@ -14,14 +16,14 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, updates: Partial<InsertUser>): Promise<User>;
-  listUsers(): Promise<(User & { team: Team | null })[]>;
+  listUsers(companyId?: number): Promise<(User & { team: Team | null })[]>;
 
   getTeam(id: number): Promise<Team | undefined>;
   createTeam(team: InsertTeam): Promise<Team>;
   updateTeam(id: number, updates: Partial<InsertTeam>): Promise<Team>;
-  listTeams(): Promise<Team[]>;
+  listTeams(companyId?: number): Promise<Team[]>;
 
-  listShopItems(): Promise<ShopItem[]>;
+  listShopItems(companyId?: number): Promise<ShopItem[]>;
   getShopItem(id: number): Promise<ShopItem | undefined>;
   createShopItem(item: InsertShopItem): Promise<ShopItem>;
   updateShopItem(id: number, updates: Partial<InsertShopItem>): Promise<ShopItem>;
@@ -30,28 +32,42 @@ export interface IStorage {
   getTransaction(id: number): Promise<CoinTransaction | undefined>;
   updateTransactionStatus(id: number, status: string): Promise<CoinTransaction>;
   getTransactionsByUser(userId: number): Promise<CoinTransaction[]>;
-  getAllTransactions(): Promise<CoinTransaction[]>;
-  getPendingTransactions(): Promise<CoinTransaction[]>;
+  getAllTransactions(companyId?: number): Promise<CoinTransaction[]>;
+  getPendingTransactions(companyId?: number): Promise<CoinTransaction[]>;
   getBalance(userId: number): Promise<number>;
 
   createRedemption(redemption: InsertRedemption): Promise<Redemption>;
-  getRedemptions(scope: 'my' | 'team' | 'all', userId: number, teamId?: number | null): Promise<(Redemption & { item: ShopItem, user: User })[]>;
+  getRedemptions(scope: 'my' | 'team' | 'all', userId: number, teamId?: number | null, companyId?: number): Promise<(Redemption & { item: ShopItem, user: User })[]>;
   updateRedemptionStatus(id: number, status: string, actorId: number): Promise<Redemption>;
 
-  listLessons(): Promise<Lesson[]>;
+  listLessons(companyId?: number): Promise<Lesson[]>;
   getLesson(id: number): Promise<Lesson | undefined>;
   createLesson(lesson: InsertLesson): Promise<Lesson>;
   updateLesson(id: number, updates: Partial<InsertLesson>): Promise<Lesson>;
   deleteLesson(id: number): Promise<void>;
 
-  createAuditLog(log: { actorId: number; action: string; entity: string; entityId?: number; details?: any }): Promise<AuditLog>;
-  listAuditLogs(): Promise<(AuditLog & { actor: User | null })[]>;
+  createAuditLog(log: { actorId: number; action: string; entity: string; entityId?: number; details?: any; companyId?: number | null }): Promise<AuditLog>;
+  listAuditLogs(companyId?: number): Promise<(AuditLog & { actor: User | null })[]>;
 
   createInviteToken(token: InsertInviteToken): Promise<InviteToken>;
   getInviteTokenByToken(token: string): Promise<InviteToken | undefined>;
-  listInviteTokens(): Promise<InviteToken[]>;
+  listInviteTokens(companyId?: number): Promise<InviteToken[]>;
   incrementInviteTokenUsage(id: number, usedById: number): Promise<InviteToken>;
   deactivateInviteToken(id: number): Promise<InviteToken>;
+
+  // Company management (Super Admin)
+  listCompanies(): Promise<(Company & { plan: SubscriptionPlan | null; userCount: number })[]>;
+  getCompany(id: number): Promise<Company | undefined>;
+  getCompanyBySubdomain(subdomain: string): Promise<Company | undefined>;
+  createCompany(company: InsertCompany): Promise<Company>;
+  updateCompany(id: number, updates: Partial<InsertCompany>): Promise<Company>;
+
+  listPlans(): Promise<SubscriptionPlan[]>;
+  getPlan(id: number): Promise<SubscriptionPlan | undefined>;
+  createPlan(plan: InsertPlan): Promise<SubscriptionPlan>;
+  updatePlan(id: number, updates: Partial<InsertPlan>): Promise<SubscriptionPlan>;
+
+  getUserCountByCompany(companyId: number): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -75,7 +91,14 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async listUsers(): Promise<(User & { team: Team | null })[]> {
+  async listUsers(companyId?: number): Promise<(User & { team: Team | null })[]> {
+    if (companyId) {
+      return await db.query.users.findMany({
+        where: eq(users.companyId, companyId),
+        with: { team: true },
+        orderBy: desc(users.createdAt)
+      });
+    }
     return await db.query.users.findMany({
       with: { team: true },
       orderBy: desc(users.createdAt)
@@ -97,11 +120,17 @@ export class DatabaseStorage implements IStorage {
     return team;
   }
 
-  async listTeams(): Promise<Team[]> {
+  async listTeams(companyId?: number): Promise<Team[]> {
+    if (companyId) {
+      return await db.select().from(teams).where(eq(teams.companyId, companyId));
+    }
     return await db.select().from(teams);
   }
 
-  async listShopItems(): Promise<ShopItem[]> {
+  async listShopItems(companyId?: number): Promise<ShopItem[]> {
+    if (companyId) {
+      return await db.select().from(shopItems).where(eq(shopItems.companyId, companyId)).orderBy(desc(shopItems.createdAt));
+    }
     return await db.select().from(shopItems).orderBy(desc(shopItems.createdAt));
   }
 
@@ -142,13 +171,28 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(coinTransactions.createdAt));
   }
 
-  async getAllTransactions(): Promise<CoinTransaction[]> {
+  async getAllTransactions(companyId?: number): Promise<CoinTransaction[]> {
+    if (companyId) {
+      return await db.select()
+        .from(coinTransactions)
+        .where(eq(coinTransactions.companyId, companyId))
+        .orderBy(desc(coinTransactions.createdAt));
+    }
     return await db.select()
       .from(coinTransactions)
       .orderBy(desc(coinTransactions.createdAt));
   }
 
-  async getPendingTransactions(): Promise<CoinTransaction[]> {
+  async getPendingTransactions(companyId?: number): Promise<CoinTransaction[]> {
+    if (companyId) {
+      return await db.select()
+        .from(coinTransactions)
+        .where(and(
+          eq(coinTransactions.status, TRANSACTION_STATUS.PENDING),
+          eq(coinTransactions.companyId, companyId)
+        ))
+        .orderBy(desc(coinTransactions.createdAt));
+    }
     return await db.select()
       .from(coinTransactions)
       .where(eq(coinTransactions.status, TRANSACTION_STATUS.PENDING))
@@ -173,7 +217,7 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async getRedemptions(scope: 'my' | 'team' | 'all', userId: number, teamId?: number | null): Promise<(Redemption & { item: ShopItem, user: User })[]> {
+  async getRedemptions(scope: 'my' | 'team' | 'all', userId: number, teamId?: number | null, companyId?: number): Promise<(Redemption & { item: ShopItem, user: User })[]> {
     if (scope === 'my') {
       return await db.query.redemptions.findMany({
         where: eq(redemptions.userId, userId),
@@ -189,6 +233,14 @@ export class DatabaseStorage implements IStorage {
 
       return await db.query.redemptions.findMany({
         where: (redemption, { inArray }) => inArray(redemption.userId, teamUserIds),
+        with: { item: true, user: true },
+        orderBy: desc(redemptions.createdAt)
+      });
+    }
+
+    if (companyId) {
+      return await db.query.redemptions.findMany({
+        where: eq(redemptions.companyId, companyId),
         with: { item: true, user: true },
         orderBy: desc(redemptions.createdAt)
       });
@@ -217,7 +269,10 @@ export class DatabaseStorage implements IStorage {
     return redemption;
   }
 
-  async listLessons(): Promise<Lesson[]> {
+  async listLessons(companyId?: number): Promise<Lesson[]> {
+    if (companyId) {
+      return await db.select().from(lessons).where(eq(lessons.companyId, companyId)).orderBy(lessons.orderIndex);
+    }
     return await db.select().from(lessons).orderBy(lessons.orderIndex);
   }
 
@@ -240,13 +295,14 @@ export class DatabaseStorage implements IStorage {
     await db.delete(lessons).where(eq(lessons.id, id));
   }
 
-  async createAuditLog(log: { actorId: number; action: string; entity: string; entityId?: number; details?: any }): Promise<AuditLog> {
+  async createAuditLog(log: { actorId: number; action: string; entity: string; entityId?: number; details?: any; companyId?: number | null }): Promise<AuditLog> {
     const [result] = await db.insert(auditLogs).values(log).returning();
     return result;
   }
 
-  async listAuditLogs(): Promise<(AuditLog & { actor: User | null })[]> {
-    const logs = await db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt));
+  async listAuditLogs(companyId?: number): Promise<(AuditLog & { actor: User | null })[]> {
+    const condition = companyId ? eq(auditLogs.companyId, companyId) : undefined;
+    const logs = await db.select().from(auditLogs).where(condition).orderBy(desc(auditLogs.createdAt));
     const enriched = await Promise.all(logs.map(async (log) => {
       let actor: User | null = null;
       if (log.actorId) {
@@ -267,7 +323,10 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async listInviteTokens(): Promise<InviteToken[]> {
+  async listInviteTokens(companyId?: number): Promise<InviteToken[]> {
+    if (companyId) {
+      return await db.select().from(inviteTokens).where(eq(inviteTokens.companyId, companyId)).orderBy(desc(inviteTokens.createdAt));
+    }
     return await db.select().from(inviteTokens).orderBy(desc(inviteTokens.createdAt));
   }
 
@@ -303,6 +362,67 @@ export class DatabaseStorage implements IStorage {
       .where(eq(inviteTokens.id, id))
       .returning();
     return result;
+  }
+
+  // === COMPANY MANAGEMENT ===
+
+  async listCompanies(): Promise<(Company & { plan: SubscriptionPlan | null; userCount: number })[]> {
+    const allCompanies = await db.query.companies.findMany({
+      with: { plan: true },
+      orderBy: desc(companies.createdAt),
+    });
+    const enriched = await Promise.all(allCompanies.map(async (c) => {
+      const count = await this.getUserCountByCompany(c.id);
+      return { ...c, userCount: count };
+    }));
+    return enriched;
+  }
+
+  async getCompany(id: number): Promise<Company | undefined> {
+    const [company] = await db.select().from(companies).where(eq(companies.id, id));
+    return company;
+  }
+
+  async getCompanyBySubdomain(subdomain: string): Promise<Company | undefined> {
+    const [company] = await db.select().from(companies).where(eq(companies.subdomain, subdomain));
+    return company;
+  }
+
+  async createCompany(insertCompany: InsertCompany): Promise<Company> {
+    const [company] = await db.insert(companies).values(insertCompany).returning();
+    return company;
+  }
+
+  async updateCompany(id: number, updates: Partial<InsertCompany>): Promise<Company> {
+    const [company] = await db.update(companies).set(updates).where(eq(companies.id, id)).returning();
+    return company;
+  }
+
+  async listPlans(): Promise<SubscriptionPlan[]> {
+    return await db.select().from(subscriptionPlans).orderBy(subscriptionPlans.id);
+  }
+
+  async getPlan(id: number): Promise<SubscriptionPlan | undefined> {
+    const [plan] = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.id, id));
+    return plan;
+  }
+
+  async createPlan(insertPlan: InsertPlan): Promise<SubscriptionPlan> {
+    const [plan] = await db.insert(subscriptionPlans).values(insertPlan).returning();
+    return plan;
+  }
+
+  async updatePlan(id: number, updates: Partial<InsertPlan>): Promise<SubscriptionPlan> {
+    const [plan] = await db.update(subscriptionPlans).set(updates).where(eq(subscriptionPlans.id, id)).returning();
+    return plan;
+  }
+
+  async getUserCountByCompany(companyId: number): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(users)
+      .where(eq(users.companyId, companyId));
+    return Number(result[0].count);
   }
 }
 

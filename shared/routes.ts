@@ -4,6 +4,8 @@ import {
   insertTeamSchema,
   insertShopItemSchema,
   insertLessonSchema,
+  insertCompanySchema,
+  insertPlanSchema,
   users,
   teams,
   shopItems,
@@ -11,7 +13,9 @@ import {
   redemptions,
   lessons,
   auditLogs,
-  inviteTokens
+  inviteTokens,
+  companies,
+  subscriptionPlans,
 } from "./schema";
 
 export const errorSchemas = {
@@ -381,6 +385,98 @@ export const api = {
       responses: {
         200: z.custom<typeof users.$inferSelect>(),
         400: errorSchemas.validation,
+      },
+    },
+  },
+  superAdmin: {
+    companies: {
+      list: {
+        method: "GET" as const,
+        path: "/api/super/companies" as const,
+        responses: {
+          200: z.array(z.custom<typeof companies.$inferSelect & { plan: typeof subscriptionPlans.$inferSelect | null; userCount: number }>()),
+        },
+      },
+      create: {
+        method: "POST" as const,
+        path: "/api/super/companies" as const,
+        input: z.object({
+          name: z.string().min(1),
+          subdomain: z.string().min(1).regex(/^[a-z0-9-]+$/, "Только строчные латинские буквы, цифры и дефис"),
+          planId: z.number().nullable().optional(),
+          supportEmail: z.string().email().nullable().optional(),
+          adminUsername: z.string().min(1).optional(),
+          adminPassword: z.string().min(3).optional(),
+          adminName: z.string().min(1).optional(),
+        }),
+        responses: {
+          201: z.custom<typeof companies.$inferSelect>(),
+          400: errorSchemas.validation,
+        },
+      },
+      update: {
+        method: "PATCH" as const,
+        path: "/api/super/companies/:id" as const,
+        input: z.object({
+          name: z.string().min(1).optional(),
+          subdomain: z.string().min(1).regex(/^[a-z0-9-]+$/).optional(),
+          planId: z.number().nullable().optional(),
+          isActive: z.boolean().optional(),
+          supportEmail: z.string().email().nullable().optional(),
+        }),
+        responses: {
+          200: z.custom<typeof companies.$inferSelect>(),
+          400: errorSchemas.validation,
+        },
+      },
+    },
+    plans: {
+      list: {
+        method: "GET" as const,
+        path: "/api/super/plans" as const,
+        responses: {
+          200: z.array(z.custom<typeof subscriptionPlans.$inferSelect>()),
+        },
+      },
+      create: {
+        method: "POST" as const,
+        path: "/api/super/plans" as const,
+        input: z.object({
+          name: z.string().min(1),
+          maxUsers: z.number().min(1),
+          priceMonthly: z.number().min(0),
+          features: z.any().optional(),
+        }),
+        responses: {
+          201: z.custom<typeof subscriptionPlans.$inferSelect>(),
+          400: errorSchemas.validation,
+        },
+      },
+      update: {
+        method: "PATCH" as const,
+        path: "/api/super/plans/:id" as const,
+        input: z.object({
+          name: z.string().min(1).optional(),
+          maxUsers: z.number().min(1).optional(),
+          priceMonthly: z.number().min(0).optional(),
+          features: z.any().optional(),
+          isActive: z.boolean().optional(),
+        }),
+        responses: {
+          200: z.custom<typeof subscriptionPlans.$inferSelect>(),
+          400: errorSchemas.validation,
+        },
+      },
+    },
+    stats: {
+      method: "GET" as const,
+      path: "/api/super/stats" as const,
+      responses: {
+        200: z.object({
+          totalCompanies: z.number(),
+          activeCompanies: z.number(),
+          totalUsers: z.number(),
+        }),
       },
     },
   },

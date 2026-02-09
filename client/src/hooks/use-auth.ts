@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, type InsertUser } from "@shared/routes";
 import { useLocation } from "wouter";
 import { z } from "zod";
+import { ROLES } from "@shared/schema";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Обязательное поле"),
@@ -43,7 +44,7 @@ export function useAuth() {
     },
     onSuccess: (data) => {
       queryClient.setQueryData([api.auth.me.path], data);
-      setLocation("/dashboard");
+      setLocation(data.role === ROLES.SUPER_ADMIN ? "/super-admin" : "/dashboard");
     },
   });
 

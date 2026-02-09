@@ -11,7 +11,8 @@ import {
   LogOut,
   Menu,
   Coins,
-  UserCircle
+  UserCircle,
+  Building2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -27,8 +28,11 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navItems: { icon: any; label: string; href: string }[] = [];
+  const isSuperAdmin = user?.role === ROLES.SUPER_ADMIN;
 
-  if (user?.role === ROLES.ADMIN) {
+  if (isSuperAdmin) {
+    navItems.push({ icon: Building2, label: "Управление", href: "/super-admin" });
+  } else if (user?.role === ROLES.ADMIN) {
     navItems.push({ icon: Home, label: "Главная", href: "/dashboard" });
     navItems.push({ icon: ShoppingBag, label: "Магазин", href: "/shop" });
     navItems.push({ icon: BookOpen, label: "Уроки", href: "/lessons" });
@@ -81,7 +85,7 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">{user?.name}</p>
-            <p className="text-xs text-muted-foreground truncate">{user?.role === "ADMIN" ? "Админ" : user?.role === "ROP" ? "РОП" : "Менеджер"}</p>
+            <p className="text-xs text-muted-foreground truncate">{user?.role === "SUPER_ADMIN" ? "Супер Админ" : user?.role === "ADMIN" ? "Админ" : user?.role === "ROP" ? "РОП" : "Менеджер"}</p>
           </div>
         </Link>
         <Button variant="outline" className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20" onClick={() => logout()} data-testid="button-logout">
@@ -123,18 +127,20 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
         {/* Top Bar (Balance) */}
         <div className="glass-panel px-6 py-4 flex justify-between items-center lg:px-8">
           <h1 className="text-xl font-display font-bold text-foreground capitalize">
-            {navItems.find(i => i.href === location)?.label || "Панель управления"}
+            {navItems.find(i => i.href === location)?.label || (isSuperAdmin ? "Управление платформой" : "Панель управления")}
           </h1>
           
-          <div className="flex items-center gap-2 px-4 py-2 bg-accent/10 rounded-full border border-accent/20 shadow-sm">
-            <span className="text-sm font-medium text-muted-foreground uppercase tracking-wide text-[10px]">Баланс</span>
-            <div className="flex items-center gap-1.5">
-              <span className="font-display font-bold text-xl text-accent-foreground">
-                {balance ?? 0}
-              </span>
-              <Coins className="w-5 h-5 text-accent fill-accent" />
+          {!isSuperAdmin && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-accent/10 rounded-full border border-accent/20 shadow-sm">
+              <span className="text-sm font-medium text-muted-foreground uppercase tracking-wide text-[10px]">Баланс</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-display font-bold text-xl text-accent-foreground">
+                  {balance ?? 0}
+                </span>
+                <Coins className="w-5 h-5 text-accent fill-accent" />
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div className="flex-1 p-4 lg:p-8 overflow-y-auto">

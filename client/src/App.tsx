@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
+import { ROLES } from "@shared/schema";
 
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth";
@@ -19,16 +20,20 @@ import RequestsPage from "@/pages/requests";
 import AdminPage from "@/pages/admin";
 import RegisterPage from "@/pages/register";
 import ProfilePage from "@/pages/profile";
+import SuperAdminPage from "@/pages/super-admin";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, isLoading } = useAuth();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
 
   useEffect(() => {
     if (!isLoading && !user) {
       setLocation("/auth");
     }
-  }, [isLoading, user, setLocation]);
+    if (!isLoading && user && user.role === ROLES.SUPER_ADMIN && location !== "/super-admin" && location !== "/profile") {
+      setLocation("/super-admin");
+    }
+  }, [isLoading, user, setLocation, location]);
 
   if (isLoading) {
     return (
@@ -77,6 +82,9 @@ function Router() {
       </Route>
       <Route path="/profile">
         <ProtectedRoute component={ProfilePage} />
+      </Route>
+      <Route path="/super-admin">
+        <ProtectedRoute component={SuperAdminPage} />
       </Route>
 
       <Route component={NotFound} />

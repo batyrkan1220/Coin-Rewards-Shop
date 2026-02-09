@@ -26,17 +26,143 @@ export async function registerRoutes(
     next();
   };
 
-  const audit = async (actorId: number, action: string, entity: string, entityId?: number, details?: any) => {
+  const requireSuperAdmin = (req: any, res: any, next: any) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Не авторизован" });
+    if (req.user.role !== ROLES.SUPER_ADMIN) return res.status(403).json({ message: "Доступ запрещён" });
+    next();
+  };
+
+  const getCompanyId = (req: any): number | undefined => {
+    return req.user?.companyId || undefined;
+  };
+
+  const audit = async (actorId: number, action: string, entity: string, entityId?: number, details?: any, companyId?: number | null) => {
     try {
-      await storage.createAuditLog({ actorId, action, entity, entityId, details });
+      await storage.createAuditLog({ actorId, action, entity, entityId, details, companyId });
     } catch (e) {
       console.error("Audit log error:", e);
     }
   };
 
+  // ==========================================
+  // SUPER ADMIN ROUTES
+  // ==========================================
+
+  app.get(api.superAdmin.stats.path, requireSuperAdmin, async (_req, res) => {
+    const companiesList = await storage.listCompanies();
+    const allUsers = await storage.listUsers();
+    res.json({
+      totalCompanies: companiesList.length,
+      activeCompanies: companiesList.filter(c => c.isActive).length,
+      totalUsers: allUsers.filter(u => u.role !== ROLES.SUPER_ADMIN).length,
+    });
+  });
+
+  app.get(api.superAdmin.companies.list.path, requireSuperAdmin, async (_req, res) => {
+    const companiesList = await storage.listCompanies();
+    res.json(companiesList);
+  });
+
+  app.post(api.superAdmin.companies.create.path, requireSuperAdmin, async (req, res) => {
+    try {
+      const input = api.superAdmin.companies.create.input.parse(req.body);
+      const existing = await storage.getCompanyBySubdomain(input.subdomain);
+      if (existing) {
+        return res.status(400).json({ message: "Субдомен уже занят" });
+      }
+      const company = await storage.createCompany({
+        name: input.name,
+        subdomain: input.subdomain,
+        planId: input.planId ?? null,
+        supportEmail: input.supportEmail ?? null,
+        isActive: true,
+      });
+
+      if (input.adminUsername && input.adminPassword && input.adminName) {
+        const existingUser = await storage.getUserByUsername(input.adminUsername);
+        if (existingUser) {
+          return res.status(400).json({ message: "Пользователь с таким email уже существует" });
+        }
+        const hashedPwd = await hashPassword(input.adminPassword);
+        await storage.createUser({
+          username: input.adminUsername,
+          password: hashedPwd,
+          name: input.adminName,
+          role: ROLES.ADMIN,
+          companyId: company.id,
+          isActive: true,
+          teamId: null,
+        });
+      }
+
+      await audit(req.user!.id, "CREATE_COMPANY", "company", company.id, { name: company.name, subdomain: company.subdomain });
+      res.status(201).json(company);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
+      throw err;
+    }
+  });
+
+  app.patch(api.superAdmin.companies.update.path, requireSuperAdmin, async (req, res) => {
+    try {
+      const input = api.superAdmin.companies.update.input.parse(req.body);
+      if (input.subdomain) {
+        const existing = await storage.getCompanyBySubdomain(input.subdomain);
+        if (existing && existing.id !== Number(req.params.id)) {
+          return res.status(400).json({ message: "Субдомен уже занят" });
+        }
+      }
+      const company = await storage.updateCompany(Number(req.params.id), input);
+      await audit(req.user!.id, "UPDATE_COMPANY", "company", company.id, input);
+      res.json(company);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
+      throw err;
+    }
+  });
+
+  app.get(api.superAdmin.plans.list.path, requireSuperAdmin, async (_req, res) => {
+    const plans = await storage.listPlans();
+    res.json(plans);
+  });
+
+  app.post(api.superAdmin.plans.create.path, requireSuperAdmin, async (req, res) => {
+    try {
+      const input = api.superAdmin.plans.create.input.parse(req.body);
+      const plan = await storage.createPlan({
+        name: input.name,
+        maxUsers: input.maxUsers,
+        priceMonthly: input.priceMonthly,
+        features: input.features ?? null,
+        isActive: true,
+      });
+      await audit(req.user!.id, "CREATE_PLAN", "subscriptionPlan", plan.id, { name: plan.name });
+      res.status(201).json(plan);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
+      throw err;
+    }
+  });
+
+  app.patch(api.superAdmin.plans.update.path, requireSuperAdmin, async (req, res) => {
+    try {
+      const input = api.superAdmin.plans.update.input.parse(req.body);
+      const plan = await storage.updatePlan(Number(req.params.id), input);
+      await audit(req.user!.id, "UPDATE_PLAN", "subscriptionPlan", plan.id, input);
+      res.json(plan);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
+      throw err;
+    }
+  });
+
+  // ==========================================
+  // COMPANY-SCOPED ROUTES
+  // ==========================================
+
   // === SHOP ===
   app.get(api.shop.list.path, requireAuth, async (req, res) => {
-    const items = await storage.listShopItems();
+    const items = await storage.listShopItems(getCompanyId(req));
     res.json(items);
   });
 
@@ -49,8 +175,8 @@ export async function registerRoutes(
   app.post(api.shop.create.path, requireRole([ROLES.ADMIN]), async (req, res) => {
     try {
       const input = api.shop.create.input.parse(req.body);
-      const item = await storage.createShopItem(input);
-      await audit(req.user!.id, "CREATE_SHOP_ITEM", "shopItem", item.id, { title: item.title });
+      const item = await storage.createShopItem({ ...input, companyId: getCompanyId(req) ?? null });
+      await audit(req.user!.id, "CREATE_SHOP_ITEM", "shopItem", item.id, { title: item.title }, getCompanyId(req));
       res.status(201).json(item);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
@@ -62,7 +188,7 @@ export async function registerRoutes(
     try {
       const input = api.shop.update.input.parse(req.body);
       const item = await storage.updateShopItem(Number(req.params.id), input);
-      await audit(req.user!.id, "UPDATE_SHOP_ITEM", "shopItem", item.id, input);
+      await audit(req.user!.id, "UPDATE_SHOP_ITEM", "shopItem", item.id, input, getCompanyId(req));
       res.json(item);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
@@ -82,7 +208,7 @@ export async function registerRoutes(
       return res.status(403).json({ message: "Доступ запрещён" });
     }
 
-    const result = await storage.getRedemptions(scope as any, user.id, user.teamId);
+    const result = await storage.getRedemptions(scope as any, user.id, user.teamId, getCompanyId(req));
     res.json(result);
   });
 
@@ -104,7 +230,8 @@ export async function registerRoutes(
         shopItemId: item.id,
         priceCoinsSnapshot: item.priceCoins,
         comment: input.comment,
-        status: REDEMPTION_STATUS.PENDING
+        status: REDEMPTION_STATUS.PENDING,
+        companyId: getCompanyId(req) ?? null,
       });
 
       await storage.createTransaction({
@@ -114,7 +241,8 @@ export async function registerRoutes(
         reason: `Магазин: ${item.title}`,
         refType: "redemption",
         refId: redemption.id,
-        createdById: user.id
+        createdById: user.id,
+        companyId: getCompanyId(req) ?? null,
       });
 
       res.status(201).json(redemption);
@@ -140,11 +268,12 @@ export async function registerRoutes(
           reason: `Возврат: заявка #${updated.id} отклонена`,
           refType: "redemption",
           refId: updated.id,
-          createdById: user.id
+          createdById: user.id,
+          companyId: getCompanyId(req) ?? null,
         });
       }
 
-      await audit(user.id, `REDEMPTION_${status}`, "redemption", updated.id, { status });
+      await audit(user.id, `REDEMPTION_${status}`, "redemption", updated.id, { status }, getCompanyId(req));
       res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
@@ -171,7 +300,7 @@ export async function registerRoutes(
   });
 
   app.get(api.transactions.listAll.path, requireRole([ROLES.ADMIN]), async (req, res) => {
-    const txs = await storage.getAllTransactions();
+    const txs = await storage.getAllTransactions(getCompanyId(req));
     res.json(txs);
   });
 
@@ -189,11 +318,12 @@ export async function registerRoutes(
       const tx = await storage.createTransaction({
         ...input,
         status,
-        createdById: req.user!.id
+        createdById: req.user!.id,
+        companyId: getCompanyId(req) ?? null,
       });
       await audit(req.user!.id, "CREATE_TRANSACTION", "coinTransaction", tx.id, {
         userId: input.userId, amount: input.amount, type: input.type, reason: input.reason, status
-      });
+      }, getCompanyId(req));
       res.status(201).json(tx);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
@@ -218,11 +348,12 @@ export async function registerRoutes(
         amount: -currentBalance,
         reason: "Обнуление",
         status: txStatus,
-        createdById: req.user!.id
+        createdById: req.user!.id,
+        companyId: getCompanyId(req) ?? null,
       });
       await audit(req.user!.id, "ZERO_OUT", "coinTransaction", tx.id, {
         userId, previousBalance: currentBalance
-      });
+      }, getCompanyId(req));
       res.status(201).json(tx);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
@@ -231,7 +362,7 @@ export async function registerRoutes(
   });
 
   app.get(api.transactions.pending.path, requireRole([ROLES.ADMIN]), async (req, res) => {
-    const pending = await storage.getPendingTransactions();
+    const pending = await storage.getPendingTransactions(getCompanyId(req));
     res.json(pending);
   });
 
@@ -247,7 +378,7 @@ export async function registerRoutes(
       const updated = await storage.updateTransactionStatus(id, status);
       await audit(req.user!.id, status === TRANSACTION_STATUS.APPROVED ? "APPROVE_TRANSACTION" : "REJECT_TRANSACTION", "coinTransaction", id, {
         userId: tx.userId, amount: tx.amount, type: tx.type
-      });
+      }, getCompanyId(req));
       res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
@@ -257,15 +388,15 @@ export async function registerRoutes(
 
   // === LESSONS ===
   app.get(api.lessons.list.path, requireAuth, async (req, res) => {
-    const allLessons = await storage.listLessons();
+    const allLessons = await storage.listLessons(getCompanyId(req));
     res.json(allLessons);
   });
 
   app.post(api.lessons.create.path, requireRole([ROLES.ADMIN]), async (req, res) => {
     try {
       const input = api.lessons.create.input.parse(req.body);
-      const lesson = await storage.createLesson(input);
-      await audit(req.user!.id, "CREATE_LESSON", "lesson", lesson.id, { title: lesson.title });
+      const lesson = await storage.createLesson({ ...input, companyId: getCompanyId(req) ?? null });
+      await audit(req.user!.id, "CREATE_LESSON", "lesson", lesson.id, { title: lesson.title }, getCompanyId(req));
       res.status(201).json(lesson);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
@@ -283,7 +414,7 @@ export async function registerRoutes(
     try {
       const input = api.lessons.update.input.parse(req.body);
       const lesson = await storage.updateLesson(Number(req.params.id), input);
-      await audit(req.user!.id, "UPDATE_LESSON", "lesson", lesson.id, input);
+      await audit(req.user!.id, "UPDATE_LESSON", "lesson", lesson.id, input, getCompanyId(req));
       res.json(lesson);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
@@ -295,13 +426,13 @@ export async function registerRoutes(
     const lesson = await storage.getLesson(Number(req.params.id));
     if (!lesson) return res.status(404).json({ message: "Урок не найден" });
     await storage.deleteLesson(Number(req.params.id));
-    await audit(req.user!.id, "DELETE_LESSON", "lesson", lesson.id, { title: lesson.title });
+    await audit(req.user!.id, "DELETE_LESSON", "lesson", lesson.id, { title: lesson.title }, getCompanyId(req));
     res.json({ success: true });
   });
 
   // === USERS ===
   app.get(api.users.list.path, requireRole([ROLES.ADMIN, ROLES.ROP]), async (req, res) => {
-    const allUsers = await storage.listUsers();
+    const allUsers = await storage.listUsers(getCompanyId(req));
     if (req.user!.role === ROLES.ROP) {
       const teamUsers = allUsers.filter(u => u.teamId === req.user!.teamId);
       return res.json(teamUsers);
@@ -323,8 +454,9 @@ export async function registerRoutes(
         password: hashedPassword,
         isActive: input.isActive ?? true,
         teamId: input.teamId ?? null,
+        companyId: getCompanyId(req) ?? null,
       });
-      await audit(req.user!.id, "CREATE_USER", "user", user.id, { name: user.name, role: user.role });
+      await audit(req.user!.id, "CREATE_USER", "user", user.id, { name: user.name, role: user.role }, getCompanyId(req));
       res.status(201).json(user);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
@@ -347,7 +479,7 @@ export async function registerRoutes(
         ...(input.teamId !== undefined && { teamId: input.teamId }),
         ...(input.isActive !== undefined && { isActive: input.isActive }),
         ...(input.name && { name: input.name }),
-      });
+      }, getCompanyId(req));
       res.json(user);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
@@ -357,15 +489,15 @@ export async function registerRoutes(
 
   // === TEAMS ===
   app.get(api.teams.list.path, requireAuth, async (req, res) => {
-    const allTeams = await storage.listTeams();
+    const allTeams = await storage.listTeams(getCompanyId(req));
     res.json(allTeams);
   });
 
   app.post(api.teams.create.path, requireRole([ROLES.ADMIN]), async (req, res) => {
     try {
       const input = api.teams.create.input.parse(req.body);
-      const team = await storage.createTeam(input);
-      await audit(req.user!.id, "CREATE_TEAM", "team", team.id, { name: team.name });
+      const team = await storage.createTeam({ ...input, companyId: getCompanyId(req) ?? null });
+      await audit(req.user!.id, "CREATE_TEAM", "team", team.id, { name: team.name }, getCompanyId(req));
       res.status(201).json(team);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
@@ -377,7 +509,7 @@ export async function registerRoutes(
     try {
       const input = api.teams.update.input.parse(req.body);
       const team = await storage.updateTeam(Number(req.params.id), input);
-      await audit(req.user!.id, "UPDATE_TEAM", "team", team.id, input);
+      await audit(req.user!.id, "UPDATE_TEAM", "team", team.id, input, getCompanyId(req));
       res.json(team);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
@@ -387,13 +519,13 @@ export async function registerRoutes(
 
   // === AUDIT ===
   app.get(api.audit.list.path, requireRole([ROLES.ADMIN]), async (req, res) => {
-    const logs = await storage.listAuditLogs();
+    const logs = await storage.listAuditLogs(getCompanyId(req));
     res.json(logs);
   });
 
   // === INVITES ===
   app.get(api.invites.list.path, requireRole([ROLES.ADMIN]), async (req, res) => {
-    const tokens = await storage.listInviteTokens();
+    const tokens = await storage.listInviteTokens(getCompanyId(req));
     res.json(tokens);
   });
 
@@ -411,8 +543,9 @@ export async function registerRoutes(
         usageLimit: usageLimit ?? 1,
         usageCount: 0,
         isActive: true,
+        companyId: getCompanyId(req) ?? null,
       });
-      await audit(req.user!.id, "CREATE_INVITE", "inviteToken", invite.id, { teamId, usageLimit: usageLimit ?? 1 });
+      await audit(req.user!.id, "CREATE_INVITE", "inviteToken", invite.id, { teamId, usageLimit: usageLimit ?? 1 }, getCompanyId(req));
       res.status(201).json(invite);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
@@ -433,12 +566,12 @@ export async function registerRoutes(
     if (count >= limit) {
       return res.status(400).json({ message: "Лимит регистраций по ссылке исчерпан" });
     }
-    res.json({ valid: true, teamId: invite.teamId });
+    res.json({ valid: true, teamId: invite.teamId, companyId: invite.companyId });
   });
 
   app.patch(api.invites.deactivate.path, requireRole([ROLES.ADMIN]), async (req, res) => {
     const invite = await storage.deactivateInviteToken(Number(req.params.id));
-    await audit(req.user!.id, "DEACTIVATE_INVITE", "inviteToken", invite.id);
+    await audit(req.user!.id, "DEACTIVATE_INVITE", "inviteToken", invite.id, undefined, getCompanyId(req));
     res.json(invite);
   });
 
@@ -465,6 +598,19 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Пользователь с таким email уже существует" });
       }
 
+      if (invite.companyId) {
+        const plan = await storage.getCompany(invite.companyId);
+        if (plan && plan.planId) {
+          const subPlan = await storage.getPlan(plan.planId);
+          if (subPlan) {
+            const currentCount = await storage.getUserCountByCompany(invite.companyId);
+            if (currentCount >= subPlan.maxUsers) {
+              return res.status(400).json({ message: "Достигнут лимит пользователей по тарифу компании" });
+            }
+          }
+        }
+      }
+
       const hashedPassword = await hashPassword(input.password);
       const user = await storage.createUser({
         username: input.username,
@@ -474,6 +620,7 @@ export async function registerRoutes(
         role: ROLES.MANAGER,
         isActive: true,
         teamId: invite.teamId,
+        companyId: invite.companyId,
       });
 
       try {
@@ -481,7 +628,7 @@ export async function registerRoutes(
       } catch (e: any) {
         return res.status(400).json({ message: e.message || "Ошибка использования ссылки" });
       }
-      await audit(user.id, "REGISTER_VIA_INVITE", "user", user.id, { inviteId: invite.id, gender: input.gender });
+      await audit(user.id, "REGISTER_VIA_INVITE", "user", user.id, { inviteId: invite.id, gender: input.gender }, invite.companyId);
 
       req.logIn(user, (err) => {
         if (err) return res.status(500).json({ message: "Ошибка авторизации после регистрации" });
@@ -537,7 +684,7 @@ export async function registerRoutes(
       await audit(user.id, "UPDATE_PROFILE", "user", user.id, {
         ...(input.name && { name: input.name }),
         ...(input.newPassword && { passwordChanged: true }),
-      });
+      }, getCompanyId(req));
       res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
@@ -557,8 +704,51 @@ async function seedDatabase() {
 
   console.log("Seeding database...");
 
-  const teamA = await storage.createTeam({ name: "Sales A" });
-  const teamB = await storage.createTeam({ name: "Sales B" });
+  const basePlan = await storage.createPlan({
+    name: "Базовый",
+    maxUsers: 20,
+    priceMonthly: 0,
+    features: { shop: true, lessons: true },
+    isActive: true,
+  });
+
+  const proPlan = await storage.createPlan({
+    name: "Профессиональный",
+    maxUsers: 100,
+    priceMonthly: 5000,
+    features: { shop: true, lessons: true, analytics: true },
+    isActive: true,
+  });
+
+  const enterprisePlan = await storage.createPlan({
+    name: "Корпоративный",
+    maxUsers: 500,
+    priceMonthly: 15000,
+    features: { shop: true, lessons: true, analytics: true, api: true },
+    isActive: true,
+  });
+
+  const demoCompany = await storage.createCompany({
+    name: "Демо компания",
+    subdomain: "demo",
+    planId: basePlan.id,
+    isActive: true,
+    supportEmail: "support@demo.com",
+  });
+
+  const superAdminPwd = await hashPassword("superadmin123");
+  await storage.createUser({
+    username: "superadmin@platform.com",
+    password: superAdminPwd,
+    name: "Супер Админ",
+    role: ROLES.SUPER_ADMIN,
+    isActive: true,
+    teamId: null,
+    companyId: null,
+  });
+
+  const teamA = await storage.createTeam({ name: "Sales A", companyId: demoCompany.id });
+  const teamB = await storage.createTeam({ name: "Sales B", companyId: demoCompany.id });
 
   const adminPwd = await hashPassword("admin123");
   await storage.createUser({
@@ -567,7 +757,8 @@ async function seedDatabase() {
     name: "Super Admin",
     role: ROLES.ADMIN,
     isActive: true,
-    teamId: null
+    teamId: null,
+    companyId: demoCompany.id,
   });
 
   const ropPwd = await hashPassword("rop123");
@@ -577,7 +768,8 @@ async function seedDatabase() {
     name: "Alikhan ROP",
     role: ROLES.ROP,
     isActive: true,
-    teamId: teamA.id
+    teamId: teamA.id,
+    companyId: demoCompany.id,
   });
 
   const mgrPwd = await hashPassword("manager123");
@@ -587,7 +779,8 @@ async function seedDatabase() {
     name: "Ivan Petrov",
     role: ROLES.MANAGER,
     isActive: true,
-    teamId: teamA.id
+    teamId: teamA.id,
+    companyId: demoCompany.id,
   });
 
   const mgr2 = await storage.createUser({
@@ -596,7 +789,8 @@ async function seedDatabase() {
     name: "Elena Sidorova",
     role: ROLES.MANAGER,
     isActive: true,
-    teamId: teamA.id
+    teamId: teamA.id,
+    companyId: demoCompany.id,
   });
 
   await storage.createShopItem({
@@ -605,7 +799,8 @@ async function seedDatabase() {
     priceCoins: 50,
     stock: 10,
     isActive: true,
-    imageUrl: "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=600&h=600&fit=crop&q=80"
+    imageUrl: "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=600&h=600&fit=crop&q=80",
+    companyId: demoCompany.id,
   });
 
   await storage.createShopItem({
@@ -614,7 +809,8 @@ async function seedDatabase() {
     priceCoins: 120,
     stock: 5,
     isActive: true,
-    imageUrl: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=600&h=600&fit=crop&q=80"
+    imageUrl: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=600&h=600&fit=crop&q=80",
+    companyId: demoCompany.id,
   });
 
   await storage.createShopItem({
@@ -623,7 +819,8 @@ async function seedDatabase() {
     priceCoins: 80,
     stock: 8,
     isActive: true,
-    imageUrl: "https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=600&h=600&fit=crop&q=80"
+    imageUrl: "https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=600&h=600&fit=crop&q=80",
+    companyId: demoCompany.id,
   });
 
   await storage.createShopItem({
@@ -632,7 +829,8 @@ async function seedDatabase() {
     priceCoins: 200,
     stock: 3,
     isActive: true,
-    imageUrl: "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=600&h=600&fit=crop&q=80"
+    imageUrl: "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=600&h=600&fit=crop&q=80",
+    companyId: demoCompany.id,
   });
 
   await storage.createShopItem({
@@ -641,7 +839,8 @@ async function seedDatabase() {
     priceCoins: 150,
     stock: 20,
     isActive: true,
-    imageUrl: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600&h=600&fit=crop&q=80"
+    imageUrl: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600&h=600&fit=crop&q=80",
+    companyId: demoCompany.id,
   });
 
   await storage.createShopItem({
@@ -650,7 +849,8 @@ async function seedDatabase() {
     priceCoins: 300,
     stock: 2,
     isActive: true,
-    imageUrl: "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=600&h=600&fit=crop&q=80"
+    imageUrl: "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=600&h=600&fit=crop&q=80",
+    companyId: demoCompany.id,
   });
 
   await storage.createShopItem({
@@ -659,7 +859,8 @@ async function seedDatabase() {
     priceCoins: 60,
     stock: 15,
     isActive: true,
-    imageUrl: "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=600&h=600&fit=crop&q=80"
+    imageUrl: "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=600&h=600&fit=crop&q=80",
+    companyId: demoCompany.id,
   });
 
   await storage.createShopItem({
@@ -668,7 +869,8 @@ async function seedDatabase() {
     priceCoins: 250,
     stock: 4,
     isActive: true,
-    imageUrl: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&h=600&fit=crop&q=80"
+    imageUrl: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&h=600&fit=crop&q=80",
+    companyId: demoCompany.id,
   });
 
   await storage.createShopItem({
@@ -677,7 +879,8 @@ async function seedDatabase() {
     priceCoins: 350,
     stock: 3,
     isActive: true,
-    imageUrl: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&h=600&fit=crop&q=80"
+    imageUrl: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&h=600&fit=crop&q=80",
+    companyId: demoCompany.id,
   });
 
   await storage.createShopItem({
@@ -686,7 +889,8 @@ async function seedDatabase() {
     priceCoins: 180,
     stock: 10,
     isActive: true,
-    imageUrl: "https://images.unsplash.com/photo-1501504905252-473c47e087f8?w=600&h=600&fit=crop&q=80"
+    imageUrl: "https://images.unsplash.com/photo-1501504905252-473c47e087f8?w=600&h=600&fit=crop&q=80",
+    companyId: demoCompany.id,
   });
 
   await storage.createLesson({
@@ -695,7 +899,8 @@ async function seedDatabase() {
     contentType: "LINK",
     content: "https://example.com/video1",
     orderIndex: 1,
-    isActive: true
+    isActive: true,
+    companyId: demoCompany.id,
   });
 
   await storage.createLesson({
@@ -704,7 +909,8 @@ async function seedDatabase() {
     contentType: "LINK",
     content: "https://example.com/video2",
     orderIndex: 2,
-    isActive: true
+    isActive: true,
+    companyId: demoCompany.id,
   });
 
   await storage.createLesson({
@@ -713,7 +919,8 @@ async function seedDatabase() {
     contentType: "LINK",
     content: "https://example.com/video3",
     orderIndex: 3,
-    isActive: true
+    isActive: true,
+    companyId: demoCompany.id,
   });
 
   await storage.createTransaction({
@@ -721,7 +928,8 @@ async function seedDatabase() {
     type: TRANSACTION_TYPES.EARN,
     amount: 200,
     reason: "Welcome Bonus",
-    createdById: rop.id
+    createdById: rop.id,
+    companyId: demoCompany.id,
   });
 
   await storage.createTransaction({
@@ -729,7 +937,8 @@ async function seedDatabase() {
     type: TRANSACTION_TYPES.EARN,
     amount: 150,
     reason: "Welcome Bonus",
-    createdById: rop.id
+    createdById: rop.id,
+    companyId: demoCompany.id,
   });
 
   console.log("Database seeded successfully!");

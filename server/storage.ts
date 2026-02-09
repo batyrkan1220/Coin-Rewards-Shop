@@ -14,32 +14,20 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, updates: Partial<InsertUser>): Promise<User>;
   listUsers(): Promise<(User & { team: Team | null })[]>;
 
   // Teams
   getTeam(id: number): Promise<Team | undefined>;
   createTeam(team: InsertTeam): Promise<Team>;
+  updateTeam(id: number, updates: Partial<InsertTeam>): Promise<Team>;
   listTeams(): Promise<Team[]>;
 
-  // Shop
-  listShopItems(): Promise<ShopItem[]>;
-  getShopItem(id: number): Promise<ShopItem | undefined>;
-  createShopItem(item: InsertShopItem): Promise<ShopItem>;
-  updateShopItem(id: number, updates: Partial<InsertShopItem>): Promise<ShopItem>;
+  // ... (existing methods)
 
-  // Transactions
-  createTransaction(tx: InsertTransaction): Promise<CoinTransaction>;
-  getTransactionsByUser(userId: number): Promise<CoinTransaction[]>;
-  getBalance(userId: number): Promise<number>;
-
-  // Redemptions
-  createRedemption(redemption: InsertRedemption): Promise<Redemption>;
-  getRedemptions(scope: 'my' | 'team' | 'all', userId: number, teamId?: number | null): Promise<(Redemption & { item: ShopItem, user: User })[]>;
-  updateRedemptionStatus(id: number, status: string, actorId: number): Promise<Redemption>;
-
-  // Lessons
-  listLessons(): Promise<Lesson[]>;
-  createLesson(lesson: InsertLesson): Promise<Lesson>;
+  // Audit Logs
+  createAuditLog(log: any): Promise<AuditLog>;
+  listAuditLogs(): Promise<AuditLog[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -56,6 +44,11 @@ export class DatabaseStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db.insert(users).values(insertUser).returning();
+    return user;
+  }
+
+  async updateUser(id: number, updates: Partial<InsertUser>): Promise<User> {
+    const [user] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
     return user;
   }
 
@@ -77,9 +70,27 @@ export class DatabaseStorage implements IStorage {
     return team;
   }
 
+  async updateTeam(id: number, updates: Partial<InsertTeam>): Promise<Team> {
+    const [team] = await db.update(teams).set(updates).where(eq(teams.id, id)).returning();
+    return team;
+  }
+
   async listTeams(): Promise<Team[]> {
     return await db.select().from(teams);
   }
+
+  // ... (implement other existing methods carefully)
+
+  // === Audit Logs ===
+  async createAuditLog(log: any): Promise<AuditLog> {
+    const [result] = await db.insert(auditLogs).values(log).returning();
+    return result;
+  }
+
+  async listAuditLogs(): Promise<AuditLog[]> {
+    return await db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt));
+  }
+}
 
   // === Shop ===
   async listShopItems(): Promise<ShopItem[]> {

@@ -1,0 +1,264 @@
+Төменде Admin-ға қатысты барлық құқықтарды (праваларды) нақтылап, жүйелеп жазып бердім. Бұл — сенің Replit MVP ТЗ-ңа тікелей кіретін бөлік. Тіл: English spec, бірақ UI бәрі Russian.
+
+⸻
+
+Admin Role — Full Permissions Specification (RBAC)
+
+1) Admin overview
+
+Admin is the highest-privileged role. Admin can:
+	•	create and manage all users (managers + ROPs + other admins)
+	•	assign roles and teams
+	•	manage lessons (create/edit/delete/publish)
+	•	manage shop catalog and redemption workflows
+	•	manage coin operations globally
+	•	view all reports and audit logs
+
+Key rule: Admin can do everything; ROP is always limited by team scope.
+
+⸻
+
+2) User Management (Managers & ROPs created by Admin)
+
+2.1 Create Users
+
+Admin can create:
+	•	Managers
+	•	ROPs
+	•	Admins (optional; allow only if you want multiple admins)
+
+UI (Russian):
+	•	“Добавить пользователя”
+	•	Fields:
+	•	ФИО
+	•	Email (or phone)
+	•	Пароль (set initial)
+	•	Роль: “Менеджер / РОП / Админ”
+	•	Команда (required for Manager/ROP)
+	•	Статус: “Активен / Заблокирован”
+
+Behavior:
+	•	Admin sets initial password manually or generates it (MVP: manual).
+	•	User becomes active immediately unless set to blocked.
+
+2.2 Edit Users
+
+Admin can edit any user:
+	•	name
+	•	login identifier (email/phone)
+	•	role
+	•	team assignment
+	•	activation status (block/unblock)
+	•	reset password
+
+UI (Russian):
+	•	“Редактировать”
+	•	“Сбросить пароль”
+	•	“Заблокировать / Разблокировать”
+
+2.3 Delete Users (Recommended: soft delete)
+
+MVP recommendation: do not hard-delete users if they have transactions/redemptions.
+	•	Use isActive=false (“Заблокирован”) instead.
+
+Rule: If user has any CoinTransactions or Redemptions, disable instead of delete.
+
+⸻
+
+3) Team Management (Admin creates teams and assigns ROP)
+
+3.1 Teams CRUD
+
+Admin can:
+	•	create a team
+	•	rename a team
+	•	assign/unassign ROP to a team
+	•	move managers between teams
+
+UI (Russian):
+	•	“Команды”
+	•	“Создать команду”
+	•	“Назначить РОП”
+
+3.2 Team Constraints
+	•	A Manager must belong to exactly one team (unless you want “no team” managers — not recommended).
+	•	A ROP must be assigned to a team (for scope limitations).
+
+⸻
+
+4) Lessons Management (Admin owns lessons fully)
+
+4.1 Lessons CRUD
+
+Admin can:
+	•	create courses and lessons
+	•	edit any lesson (title, content link/text, order)
+	•	publish/unpublish lessons (isActive)
+	•	delete lesson (only if safe; otherwise set inactive)
+
+Fields (MVP):
+	•	Course name: “Курс”
+	•	Lesson title: “Название урока”
+	•	Content type: Link or Text (MVP: Link-only is OK)
+	•	Content URL: “Ссылка”
+	•	Order index: “Порядок”
+	•	Status: “Активен / Неактивен”
+
+UI (Russian):
+	•	“Уроки”
+	•	“Добавить урок”
+	•	“Редактировать урок”
+	•	“Скрыть” / “Опубликовать”
+
+4.2 Recommended rules
+	•	Keep lessons visible for all active users (Managers + ROPs).
+	•	Only Admin can edit lessons.
+
+⸻
+
+5) Shop Management (Admin owns shop fully)
+
+5.1 Shop Items CRUD
+
+Admin can:
+	•	create shop items (rewards)
+	•	edit price, description, stock, active status
+	•	upload or set an image URL (optional MVP)
+	•	set limits (optional v1)
+
+Fields:
+	•	Title: “Название”
+	•	Description: “Описание”
+	•	Price in coins: “Цена (коины)”
+	•	Stock: “Остаток” (optional)
+	•	Active: “Активен”
+
+UI (Russian):
+	•	“Магазин”
+	•	“Добавить товар”
+	•	“Редактировать товар”
+
+5.2 Redemption workflow control
+
+Admin can:
+	•	view all redemption requests
+	•	approve/reject any request
+	•	mark as issued (“Выдано”)
+	•	override team scope (Admin sees everything)
+
+UI (Russian):
+	•	“Заявки на выдачу”
+	•	Statuses: “Ожидает / Подтверждено / Отклонено / Выдано”
+	•	Buttons: “Подтвердить / Отклонить / Отметить как выдано”
+
+⸻
+
+6) Coin Operations (Admin global control)
+
+6.1 Manual coin operations
+
+Admin can create transactions for any user:
+	•	EARN (Начислить)
+	•	SPEND (Списать) — manual deduction (rare; keep audit)
+	•	ADJUST (Коррекция / Обнулить)
+
+UI (Russian):
+	•	“Коины”
+	•	“Начислить”
+	•	“Списать”
+	•	“Коррекция”
+	•	“Обнулить”
+
+6.2 Zeroing (Обнулить) rule
+
+Admin “Обнулить” does:
+	•	compute current balance
+	•	create ADJUST transaction with amount = -currentBalance
+	•	add reason “Обнуление”
+	•	store createdBy=Admin
+
+Important: Never delete existing transactions.
+
+6.3 Data integrity & restrictions
+	•	Transaction amount must be integer.
+	•	Every transaction must have:
+	•	reason (required)
+	•	createdBy (required)
+	•	timestamp
+
+⸻
+
+7) Global Visibility & Reports (Admin sees all)
+
+Admin can view:
+	•	all teams, all users
+	•	all transactions (ledger)
+	•	all redemptions
+	•	summary dashboards:
+	•	top managers by coins earned
+	•	top spenders
+	•	redemptions by status
+	•	coins issued vs spent
+
+UI (Russian):
+	•	“Отчёты”
+	•	“Транзакции”
+	•	“Рейтинг”
+
+⸻
+
+8) Audit Logging (Admin required actions logged)
+
+For security and dispute handling, Admin actions must be logged to AuditLog:
+Log events:
+	•	create/edit user
+	•	role change
+	•	team change
+	•	add/deduct/adjust coins
+	•	create/edit shop items
+	•	approve/reject/issue redemption
+	•	create/edit lessons
+
+Audit fields:
+	•	actorId (Admin id)
+	•	action
+	•	entity + entityId
+	•	before/after snapshot (MVP: store as JSON string)
+
+UI (Russian):
+	•	“Журнал действий” / “Audit log”
+
+⸻
+
+9) Admin Routes (Replit / Express)
+
+All Admin pages must be protected by middleware:
+	•	requireAuth
+	•	requireRole('ADMIN')
+
+Admin routes (example):
+	•	/admin/users
+	•	/admin/teams
+	•	/admin/lessons
+	•	/admin/shop
+	•	/admin/redemptions
+	•	/admin/transactions
+	•	/admin/audit
+
+⸻
+
+10) Acceptance Criteria (Admin-specific)
+
+Admin must be able to:
+	1.	Create Manager + set team + set password + role.
+	2.	Create ROP + set team + role.
+	3.	Edit any user (role/team/password).
+	4.	Add/edit lessons and immediately see them in Manager UI.
+	5.	Add/edit shop items and see them in Shop page.
+	6.	Approve redemption and coins get deducted via SPEND transaction.
+	7.	Obnulit any manager — balance becomes 0 via ADJUST, history stays.
+	8.	View audit log containing all sensitive actions.
+
+⸻
+
+Егер қаласаң, мен осы Admin правалардың негізінде RBAC матрицасын (Role × Feature × Action) кесте қылып та жазып берем (өте түсінікті болады девке).

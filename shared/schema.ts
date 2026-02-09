@@ -34,7 +34,7 @@ export const CONTENT_TYPES = {
 export const teams = pgTable("teams", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  ropUserId: integer("rop_user_id"), // Will be a circular reference, handled in relations or logic
+  ropUserId: integer("rop_user_id"), 
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -167,6 +167,7 @@ export type ShopItem = typeof shopItems.$inferSelect;
 export type CoinTransaction = typeof coinTransactions.$inferSelect;
 export type Redemption = typeof redemptions.$inferSelect;
 export type Lesson = typeof lessons.$inferSelect;
+export type AuditLog = typeof auditLogs.$inferSelect;
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertTeam = z.infer<typeof insertTeamSchema>;

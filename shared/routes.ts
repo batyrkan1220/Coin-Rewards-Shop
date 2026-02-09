@@ -188,6 +188,24 @@ export const api = {
         200: z.array(z.custom<typeof users.$inferSelect & { team: typeof teams.$inferSelect | null }>()),
       },
     },
+    create: {
+      method: "POST" as const,
+      path: "/api/users" as const,
+      input: insertUserSchema,
+      responses: {
+        201: z.custom<typeof users.$inferSelect>(),
+        403: errorSchemas.unauthorized,
+      },
+    },
+    update: {
+      method: "PATCH" as const,
+      path: "/api/users/:id" as const,
+      input: insertUserSchema.partial(),
+      responses: {
+        200: z.custom<typeof users.$inferSelect>(),
+        403: errorSchemas.unauthorized,
+      },
+    },
   },
   teams: {
     list: {
@@ -195,6 +213,33 @@ export const api = {
       path: "/api/teams" as const,
       responses: {
         200: z.array(z.custom<typeof teams.$inferSelect>()),
+      },
+    },
+    create: {
+      method: "POST" as const,
+      path: "/api/teams" as const,
+      input: insertTeamSchema,
+      responses: {
+        201: z.custom<typeof teams.$inferSelect>(),
+        403: errorSchemas.unauthorized,
+      },
+    },
+    update: {
+      method: "PATCH" as const,
+      path: "/api/teams/:id" as const,
+      input: insertTeamSchema.partial(),
+      responses: {
+        200: z.custom<typeof teams.$inferSelect>(),
+        403: errorSchemas.unauthorized,
+      },
+    },
+  },
+  audit: {
+    list: {
+      method: "GET" as const,
+      path: "/api/audit" as const,
+      responses: {
+        200: z.array(z.custom<typeof auditLogs.$inferSelect>()),
       },
     },
   }

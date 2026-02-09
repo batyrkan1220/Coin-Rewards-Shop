@@ -1,7 +1,14 @@
 # Coins Rewards Platform
 
 ## Overview
-Corporate Coins Rewards, Shop, and Lessons platform with Role-Based Access Control (RBAC). Three user roles: ADMIN (full system control), ROP (team lead with coin management and approval powers), and MANAGER (can earn coins, shop, and learn). All UI is in Russian.
+Multi-tenant SaaS Coins Rewards, Shop, and Lessons platform with Role-Based Access Control (RBAC). Four user roles: SUPER_ADMIN (platform owner, manages companies and plans), ADMIN (company admin, full company control), ROP (team lead with coin management and approval powers), and MANAGER (can earn coins, shop, and learn). All UI is in Russian, no emojis.
+
+## Multi-Tenant Architecture
+- **SUPER_ADMIN** has null companyId, sees /super-admin dashboard with Companies, Plans, Stats tabs
+- **All other users** (ADMIN/ROP/MANAGER) belong to a company (companyId), data is company-scoped
+- Company-scoped routes use `getCompanyId(req)` helper to extract companyId from session user
+- Registration enforces subscription plan user limits (maxUsers per company)
+- Each company has a subdomain, plan, and support email
 
 ## Architecture
 - **Frontend**: React + TypeScript + Vite, TailwindCSS, shadcn/ui, wouter routing, TanStack Query
@@ -18,11 +25,11 @@ server/
   index.ts        - Server entry point
   db.ts           - Database connection (Pool + Drizzle)
   auth.ts         - Passport.js setup, password hashing, login/logout/me routes
-  routes.ts       - All API route handlers, seed data
+  routes.ts       - All API route handlers, seed data, Super Admin endpoints
   storage.ts      - Database CRUD operations (IStorage interface + DatabaseStorage class)
   vite.ts         - Vite dev server integration
 client/src/
-  App.tsx          - Router with ProtectedRoute wrapper
+  App.tsx          - Router with ProtectedRoute wrapper (SUPER_ADMIN redirect to /super-admin)
   pages/
     auth.tsx       - Login page
     dashboard.tsx  - User dashboard with balance, transactions, redemptions
@@ -31,32 +38,47 @@ client/src/
     team.tsx       - Team management (coin ops: earn, adjust, zero-out)
     requests.tsx   - Redemption requests with approval workflow
     admin.tsx      - Admin panel with 8 tabs (Users, Teams, Shop, Lessons, Redemptions, Transactions, Audit, Invites)
+    super-admin.tsx - Super Admin dashboard (Statistics, Companies, Plans)
     register.tsx   - Registration page via invite token
     profile.tsx    - User profile with name/password change
   hooks/
     use-auth.ts, use-team.ts, use-shop.ts, use-transactions.ts, use-redemptions.ts, use-lessons.ts, use-audit.ts
   components/
-    layout-shell.tsx - Sidebar + topbar layout
+    layout-shell.tsx - Sidebar + topbar layout (hides balance for SUPER_ADMIN)
     item-card.tsx    - Shop item card component
     ui/              - shadcn/ui components
 ```
 
 ## Database Tables
-1. **users** - id, username, password, role, name, gender, teamId, isActive, createdAt
-2. **teams** - id, name, ropUserId, createdAt
-3. **shop_items** - id, title, description, priceCoins, stock, isActive, imageUrl, createdAt
-4. **coin_transactions** - id, userId, type (EARN/SPEND/ADJUST), amount, reason, refType, refId, createdById, createdAt
-5. **redemptions** - id, userId, shopItemId, priceCoinsSnapshot, status, comment, approvedById, approvedAt, issuedById, issuedAt, createdAt
-6. **lessons** - id, course, title, contentType, content, orderIndex, isActive, createdAt
-7. **audit_logs** - id, actorId, action, entity, entityId, details (jsonb), createdAt
-8. **invite_tokens** - id, token, teamId, createdById, usedById, expiresAt, usageLimit, usageCount, isActive, createdAt, usedAt
+1. **users** - id, username, password, role, name, gender, avatarStyle, companyId (nullable for SUPER_ADMIN), teamId, isActive, createdAt
+2. **companies** - id, name, subdomain, planId, isActive, supportEmail, createdAt
+3. **subscription_plans** - id, name, maxUsers, priceMonthly, features (jsonb), isActive, createdAt
+4. **teams** - id, name, ropUserId, companyId, createdAt
+5. **shop_items** - id, title, description, priceCoins, stock, isActive, imageUrl, companyId, createdAt
+6. **coin_transactions** - id, userId, type (EARN/SPEND/ADJUST), amount, reason, refType, refId, status (PENDING/APPROVED), createdById, companyId, createdAt
+7. **redemptions** - id, userId, shopItemId, priceCoinsSnapshot, status, comment, companyId, approvedById, approvedAt, issuedById, issuedAt, createdAt
+8. **lessons** - id, course, title, contentType, content, orderIndex, isActive, companyId, createdAt
+9. **audit_logs** - id, actorId, action, entity, entityId, details (jsonb), companyId, createdAt
+10. **invite_tokens** - id, token, teamId, createdById, usedById, expiresAt, usageLimit, usageCount, isActive, companyId, createdAt, usedAt
 
 ## Demo Credentials
+- Super Admin: superadmin@platform.com / superadmin123
 - Admin: admin@example.com / admin123
 - ROP: rop@example.com / rop123
 - Manager: manager1@example.com / manager123
 
+## Super Admin API Endpoints
+- GET /api/super/stats - Platform statistics (total companies, active companies, total users)
+- GET /api/super/companies - List all companies with plan info and user count
+- POST /api/super/companies - Create new company with admin user
+- PATCH /api/super/companies/:id - Update company details
+- GET /api/super/plans - List all subscription plans
+- POST /api/super/plans - Create subscription plan
+- PATCH /api/super/plans/:id - Update subscription plan
+
 ## Key Features
+- Multi-tenant SaaS with company isolation
+- Three subscription plans: Базовый (free, 50 users), Профессиональный (5000 KZT/mo, 100 users), Корпоративный (15000 KZT/mo, 500 users)
 - Three-step redemption workflow: PENDING -> APPROVED -> ISSUED
 - Coins deducted on APPROVED status
 - Transaction approval workflow: ROP transactions PENDING, Admin auto-APPROVED
@@ -107,6 +129,7 @@ client/src/
 - Shows balance, team, and role information
 
 ## Recent Changes
+- 2026-02-09: Multi-tenant SaaS transformation: added SUPER_ADMIN role, companies table, subscription_plans table, company-scoped data isolation, Super Admin dashboard with Statistics/Companies/Plans tabs
 - 2026-02-09: Added invite usage limits (configurable per link) and gender selection at registration with gender-specific avatars
 - 2026-02-09: Added invite token system: admin creates secret registration links, registration page, admin Invites tab with create/copy/deactivate
 - 2026-02-09: Added user profile page with name change and password change

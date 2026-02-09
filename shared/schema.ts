@@ -106,6 +106,18 @@ export const lessons = pgTable("lessons", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const inviteTokens = pgTable("invite_tokens", {
+  id: serial("id").primaryKey(),
+  token: text("token").notNull().unique(),
+  teamId: integer("team_id").references(() => teams.id),
+  createdById: integer("created_by_id").references(() => users.id),
+  usedById: integer("used_by_id").references(() => users.id),
+  usedAt: timestamp("used_at"),
+  expiresAt: timestamp("expires_at"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
   actorId: integer("actor_id").references(() => users.id),
@@ -167,6 +179,7 @@ export const insertShopItemSchema = createInsertSchema(shopItems).omit({ id: tru
 export const insertTransactionSchema = createInsertSchema(coinTransactions).omit({ id: true, createdAt: true });
 export const insertRedemptionSchema = createInsertSchema(redemptions).omit({ id: true, createdAt: true, approvedAt: true, issuedAt: true });
 export const insertLessonSchema = createInsertSchema(lessons).omit({ id: true, createdAt: true });
+export const insertInviteTokenSchema = createInsertSchema(inviteTokens).omit({ id: true, createdAt: true, usedAt: true });
 
 // === TYPES ===
 
@@ -177,6 +190,7 @@ export type CoinTransaction = typeof coinTransactions.$inferSelect;
 export type Redemption = typeof redemptions.$inferSelect;
 export type Lesson = typeof lessons.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
+export type InviteToken = typeof inviteTokens.$inferSelect;
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertTeam = z.infer<typeof insertTeamSchema>;
@@ -184,3 +198,4 @@ export type InsertShopItem = z.infer<typeof insertShopItemSchema>;
 export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 export type InsertRedemption = z.infer<typeof insertRedemptionSchema>;
 export type InsertLesson = z.infer<typeof insertLessonSchema>;
+export type InsertInviteToken = z.infer<typeof insertInviteTokenSchema>;

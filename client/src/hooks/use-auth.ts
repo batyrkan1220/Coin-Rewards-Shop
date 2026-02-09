@@ -17,7 +17,7 @@ export function useAuth() {
   const { data: user, isLoading, error } = useQuery({
     queryKey: [api.auth.me.path],
     queryFn: async () => {
-      const res = await fetch(api.auth.me.path);
+      const res = await fetch(api.auth.me.path, { credentials: "include" });
       if (res.status === 401) return null;
       if (!res.ok) throw new Error("Failed to fetch user");
       return await res.json();
@@ -30,6 +30,7 @@ export function useAuth() {
       const res = await fetch(api.auth.login.path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(credentials),
       });
       
@@ -48,7 +49,7 @@ export function useAuth() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await fetch(api.auth.logout.path, { method: "POST" });
+      await fetch(api.auth.logout.path, { method: "POST", credentials: "include" });
     },
     onSuccess: () => {
       queryClient.setQueryData([api.auth.me.path], null);

@@ -8,7 +8,7 @@ export function useTransactions(userId?: number) {
       const url = userId
         ? `${api.transactions.list.path}?userId=${userId}`
         : api.transactions.list.path;
-      const res = await fetch(url);
+      const res = await fetch(url, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load transactions");
       return await res.json();
     },
@@ -19,7 +19,7 @@ export function useAllTransactions() {
   return useQuery({
     queryKey: [api.transactions.listAll.path],
     queryFn: async () => {
-      const res = await fetch(api.transactions.listAll.path);
+      const res = await fetch(api.transactions.listAll.path, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load transactions");
       return await res.json();
     },
@@ -32,7 +32,7 @@ export function useBalance(userId?: number) {
     queryFn: async () => {
       if (!userId) return null;
       const url = buildUrl(api.transactions.balance.path, { userId });
-      const res = await fetch(url);
+      const res = await fetch(url, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load balance");
       const data = await res.json();
       return data.balance as number;
@@ -48,11 +48,12 @@ export function useCreateTransaction() {
       const res = await fetch(api.transactions.create.path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(data),
       });
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Failed to create transaction");
+        const error = await res.json().catch(() => ({ message: "Ошибка создания транзакции" }));
+        throw new Error(error.message || "Ошибка создания транзакции");
       }
       return await res.json();
     },
@@ -72,11 +73,12 @@ export function useZeroOut() {
       const res = await fetch(api.transactions.zeroOut.path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ userId }),
       });
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Failed to zero out");
+        const error = await res.json().catch(() => ({ message: "Ошибка обнуления" }));
+        throw new Error(error.message || "Ошибка обнуления");
       }
       return await res.json();
     },
@@ -93,7 +95,7 @@ export function usePendingTransactions() {
   return useQuery({
     queryKey: [api.transactions.pending.path],
     queryFn: async () => {
-      const res = await fetch(api.transactions.pending.path);
+      const res = await fetch(api.transactions.pending.path, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load pending transactions");
       return await res.json();
     },
@@ -108,10 +110,11 @@ export function useUpdateTransactionStatus() {
       const res = await fetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ status }),
       });
       if (!res.ok) {
-        const error = await res.json();
+        const error = await res.json().catch(() => ({ message: "Ошибка обновления статуса" }));
         throw new Error(error.message || "Ошибка обновления статуса");
       }
       return await res.json();

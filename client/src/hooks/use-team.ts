@@ -5,7 +5,7 @@ export function useUsers() {
   return useQuery({
     queryKey: [api.users.list.path],
     queryFn: async () => {
-      const res = await fetch(api.users.list.path);
+      const res = await fetch(api.users.list.path, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load users");
       return await res.json();
     },
@@ -16,7 +16,7 @@ export function useTeams() {
   return useQuery({
     queryKey: [api.teams.list.path],
     queryFn: async () => {
-      const res = await fetch(api.teams.list.path);
+      const res = await fetch(api.teams.list.path, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load teams");
       return await res.json();
     },
@@ -30,11 +30,12 @@ export function useCreateUser() {
       const res = await fetch(api.users.create.path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(data),
       });
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Failed to create user");
+        const error = await res.json().catch(() => ({ message: "Ошибка создания пользователя" }));
+        throw new Error(error.message || "Ошибка создания пользователя");
       }
       return await res.json();
     },
@@ -50,11 +51,12 @@ export function useUpdateUser() {
       const res = await fetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(data),
       });
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Failed to update user");
+        const error = await res.json().catch(() => ({ message: "Ошибка обновления пользователя" }));
+        throw new Error(error.message || "Ошибка обновления пользователя");
       }
       return await res.json();
     },
@@ -69,9 +71,13 @@ export function useCreateTeam() {
       const res = await fetch(api.teams.create.path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Failed to create team");
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ message: "Ошибка создания команды" }));
+        throw new Error(error.message || "Ошибка создания команды");
+      }
       return await res.json();
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.teams.list.path] }),
@@ -86,9 +92,13 @@ export function useUpdateTeam() {
       const res = await fetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Failed to update team");
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ message: "Ошибка обновления команды" }));
+        throw new Error(error.message || "Ошибка обновления команды");
+      }
       return await res.json();
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.teams.list.path] }),

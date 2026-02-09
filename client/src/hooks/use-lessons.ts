@@ -5,7 +5,7 @@ export function useLessons() {
   return useQuery({
     queryKey: [api.lessons.list.path],
     queryFn: async () => {
-      const res = await fetch(api.lessons.list.path);
+      const res = await fetch(api.lessons.list.path, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load lessons");
       return await res.json();
     },
@@ -17,7 +17,7 @@ export function useLesson(id: number | null) {
     queryKey: ["/api/lessons", id],
     queryFn: async () => {
       if (!id) return null;
-      const res = await fetch(`/api/lessons/${id}`);
+      const res = await fetch(`/api/lessons/${id}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load lesson");
       return await res.json();
     },
@@ -32,9 +32,13 @@ export function useCreateLesson() {
       const res = await fetch(api.lessons.create.path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Failed to create lesson");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "Ошибка создания урока" }));
+        throw new Error(err.message || "Ошибка создания урока");
+      }
       return await res.json();
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.lessons.list.path] }),
@@ -49,9 +53,13 @@ export function useUpdateLesson() {
       const res = await fetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Failed to update lesson");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "Ошибка обновления урока" }));
+        throw new Error(err.message || "Ошибка обновления урока");
+      }
       return await res.json();
     },
     onSuccess: () => {
@@ -67,8 +75,12 @@ export function useDeleteLesson() {
     mutationFn: async (id: number) => {
       const res = await fetch(`/api/lessons/${id}`, {
         method: "DELETE",
+        credentials: "include",
       });
-      if (!res.ok) throw new Error("Failed to delete lesson");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "Ошибка удаления урока" }));
+        throw new Error(err.message || "Ошибка удаления урока");
+      }
       return await res.json();
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.lessons.list.path] }),

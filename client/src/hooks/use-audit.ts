@@ -5,7 +5,7 @@ export function useAuditLogs() {
   return useQuery({
     queryKey: [api.audit.list.path],
     queryFn: async () => {
-      const res = await fetch(api.audit.list.path);
+      const res = await fetch(api.audit.list.path, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to load audit logs");
       return await res.json();
     },

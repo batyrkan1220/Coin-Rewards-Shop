@@ -388,6 +388,54 @@ export const api = {
       },
     },
   },
+  company: {
+    get: {
+      method: "GET" as const,
+      path: "/api/company" as const,
+      responses: {
+        200: z.custom<typeof companies.$inferSelect & { plan: typeof subscriptionPlans.$inferSelect | null; userCount: number }>(),
+        403: errorSchemas.unauthorized,
+      },
+    },
+    update: {
+      method: "PATCH" as const,
+      path: "/api/company" as const,
+      input: z.object({
+        name: z.string().min(1).optional(),
+        supportEmail: z.string().email().nullable().optional(),
+      }),
+      responses: {
+        200: z.custom<typeof companies.$inferSelect>(),
+        403: errorSchemas.unauthorized,
+      },
+    },
+  },
+  registerCompany: {
+    method: "POST" as const,
+    path: "/api/register-company" as const,
+    input: z.object({
+      companyName: z.string().min(1),
+      subdomain: z.string().min(1).regex(/^[a-z0-9-]+$/, "Только строчные латинские буквы, цифры и дефис"),
+      planId: z.number(),
+      adminEmail: z.string().email("Некорректный email"),
+      adminPassword: z.string().min(6, "Минимум 6 символов"),
+      adminName: z.string().min(1),
+      gender: z.enum(["male", "female"]),
+    }),
+    responses: {
+      201: z.custom<typeof users.$inferSelect>(),
+      400: errorSchemas.validation,
+    },
+  },
+  plans: {
+    list: {
+      method: "GET" as const,
+      path: "/api/plans" as const,
+      responses: {
+        200: z.array(z.custom<typeof subscriptionPlans.$inferSelect>()),
+      },
+    },
+  },
   superAdmin: {
     companies: {
       list: {

@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Coins, Loader2 } from "lucide-react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useEffect } from "react";
 
 const loginSchema = z.object({
@@ -89,6 +89,13 @@ export default function AuthPage() {
                   {isLoggingIn ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                   Войти
                 </Button>
+
+                <p className="text-center text-sm text-muted-foreground">
+                  Нет аккаунта?{" "}
+                  <Link href="/register-company" className="text-primary font-medium hover:underline" data-testid="link-register-company">
+                    Зарегистрировать компанию
+                  </Link>
+                </p>
               </form>
             </Form>
           </CardContent>

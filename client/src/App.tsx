@@ -19,7 +19,9 @@ import TeamPage from "@/pages/team";
 import RequestsPage from "@/pages/requests";
 import AdminPage from "@/pages/admin";
 import RegisterPage from "@/pages/register";
+import RegisterCompanyPage from "@/pages/register-company";
 import ProfilePage from "@/pages/profile";
+import CompanyProfilePage from "@/pages/company-profile";
 import SuperAdminPage from "@/pages/super-admin";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -60,6 +62,7 @@ function Router() {
       <Route path="/" component={HomePage} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/register/:token" component={RegisterPage} />
+      <Route path="/register-company" component={RegisterCompanyPage} />
       
       {/* Protected Routes */}
       <Route path="/dashboard">
@@ -82,6 +85,9 @@ function Router() {
       </Route>
       <Route path="/profile">
         <ProtectedRoute component={ProfilePage} />
+      </Route>
+      <Route path="/company">
+        <ProtectedRoute component={CompanyProfilePage} />
       </Route>
       <Route path="/super-admin">
         <ProtectedRoute component={SuperAdminPage} />

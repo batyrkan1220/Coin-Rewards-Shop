@@ -38,6 +38,7 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
     navItems.push({ icon: BookOpen, label: "Уроки", href: "/lessons" });
     navItems.push({ icon: Users, label: "Команда", href: "/team" });
     navItems.push({ icon: Settings, label: "Админ", href: "/admin" });
+    navItems.push({ icon: Building2, label: "Компания", href: "/company" });
   } else {
     navItems.push({ icon: Home, label: "Главная", href: "/dashboard" });
     navItems.push({ icon: ShoppingBag, label: "Магазин", href: "/shop" });

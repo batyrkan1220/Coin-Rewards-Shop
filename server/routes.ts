@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, hashPassword } from "./auth";
+import { setupAuth, hashPassword, sanitizeUser } from "./auth";
 import { api } from "@shared/routes";
 import { ROLES, REDEMPTION_STATUS, TRANSACTION_TYPES, TRANSACTION_STATUS } from "@shared/schema";
 import { z } from "zod";
@@ -150,6 +150,93 @@ export async function registerRoutes(
       const plan = await storage.updatePlan(Number(req.params.id), input);
       await audit(req.user!.id, "UPDATE_PLAN", "subscriptionPlan", plan.id, input);
       res.json(plan);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
+      throw err;
+    }
+  });
+
+  // ==========================================
+  // PUBLIC PLANS (for registration page)
+  // ==========================================
+  app.get(api.plans.list.path, async (_req, res) => {
+    const plans = await storage.listPlans();
+    res.json(plans.filter(p => p.isActive));
+  });
+
+  // ==========================================
+  // COMPANY REGISTRATION (public)
+  // ==========================================
+  app.post(api.registerCompany.path, async (req, res) => {
+    try {
+      const input = api.registerCompany.input.parse(req.body);
+
+      const existingSubdomain = await storage.getCompanyBySubdomain(input.subdomain);
+      if (existingSubdomain) {
+        return res.status(400).json({ message: "Субдомен уже занят" });
+      }
+
+      const existingUser = await storage.getUserByUsername(input.adminEmail);
+      if (existingUser) {
+        return res.status(400).json({ message: "Пользователь с таким email уже существует" });
+      }
+
+      const plan = await storage.getPlan(input.planId);
+      if (!plan || !plan.isActive) {
+        return res.status(400).json({ message: "Выбранный тарифный план недоступен" });
+      }
+
+      const company = await storage.createCompany({
+        name: input.companyName,
+        subdomain: input.subdomain,
+        planId: input.planId,
+        supportEmail: input.adminEmail,
+        isActive: true,
+      });
+
+      const hashedPwd = await hashPassword(input.adminPassword);
+      const adminUser = await storage.createUser({
+        username: input.adminEmail,
+        password: hashedPwd,
+        name: input.adminName,
+        role: ROLES.ADMIN,
+        companyId: company.id,
+        gender: input.gender,
+        isActive: true,
+        teamId: null,
+      });
+
+      req.login(adminUser, (err: any) => {
+        if (err) return res.status(500).json({ message: "Ошибка авторизации" });
+        res.status(201).json(sanitizeUser(adminUser));
+      });
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
+      throw err;
+    }
+  });
+
+  // ==========================================
+  // COMPANY PROFILE (for ADMIN)
+  // ==========================================
+  app.get(api.company.get.path, requireRole([ROLES.ADMIN]), async (req, res) => {
+    const companyId = getCompanyId(req);
+    if (!companyId) return res.status(403).json({ message: "Компания не найдена" });
+    const company = await storage.getCompany(companyId);
+    if (!company) return res.status(404).json({ message: "Компания не найдена" });
+    const plan = company.planId ? await storage.getPlan(company.planId) : null;
+    const userCount = await storage.getUserCountByCompany(companyId);
+    res.json({ ...company, plan, userCount });
+  });
+
+  app.patch(api.company.update.path, requireRole([ROLES.ADMIN]), async (req, res) => {
+    try {
+      const companyId = getCompanyId(req);
+      if (!companyId) return res.status(403).json({ message: "Компания не найдена" });
+      const input = api.company.update.input.parse(req.body);
+      const company = await storage.updateCompany(companyId, input);
+      await audit(req.user!.id, "UPDATE_COMPANY_PROFILE", "company", company.id, input, companyId);
+      res.json(company);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
       throw err;
@@ -435,9 +522,9 @@ export async function registerRoutes(
     const allUsers = await storage.listUsers(getCompanyId(req));
     if (req.user!.role === ROLES.ROP) {
       const teamUsers = allUsers.filter(u => u.teamId === req.user!.teamId);
-      return res.json(teamUsers);
+      return res.json(teamUsers.map(sanitizeUser));
     }
-    res.json(allUsers);
+    res.json(allUsers.map(sanitizeUser));
   });
 
   app.post(api.users.create.path, requireRole([ROLES.ADMIN]), async (req, res) => {
@@ -457,7 +544,7 @@ export async function registerRoutes(
         companyId: getCompanyId(req) ?? null,
       });
       await audit(req.user!.id, "CREATE_USER", "user", user.id, { name: user.name, role: user.role }, getCompanyId(req));
-      res.status(201).json(user);
+      res.status(201).json(sanitizeUser(user));
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
       throw err;
@@ -480,7 +567,7 @@ export async function registerRoutes(
         ...(input.isActive !== undefined && { isActive: input.isActive }),
         ...(input.name && { name: input.name }),
       }, getCompanyId(req));
-      res.json(user);
+      res.json(sanitizeUser(user));
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
       throw err;
@@ -632,7 +719,7 @@ export async function registerRoutes(
 
       req.logIn(user, (err) => {
         if (err) return res.status(500).json({ message: "Ошибка авторизации после регистрации" });
-        res.status(201).json(user);
+        res.status(201).json(sanitizeUser(user));
       });
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
@@ -685,7 +772,7 @@ export async function registerRoutes(
         ...(input.name && { name: input.name }),
         ...(input.newPassword && { passwordChanged: true }),
       }, getCompanyId(req));
-      res.json(updated);
+      res.json(sanitizeUser(updated));
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
       throw err;

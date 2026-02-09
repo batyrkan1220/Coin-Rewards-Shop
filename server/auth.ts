@@ -13,6 +13,11 @@ import { pool } from "./db";
 const scryptAsync = promisify(scrypt);
 const PgSession = connectPg(session);
 
+export function sanitizeUser(user: User) {
+  const { password, ...safeUser } = user;
+  return safeUser;
+}
+
 export async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
   const buf = (await scryptAsync(password, salt, 64)) as Buffer;
@@ -82,7 +87,7 @@ export function setupAuth(app: Express) {
         if (err) {
           return next(err);
         }
-        res.json(user);
+        res.json(sanitizeUser(user));
       });
     })(req, res, next);
   });
@@ -98,6 +103,6 @@ export function setupAuth(app: Express) {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Не авторизован" });
     }
-    res.json(req.user);
+    res.json(sanitizeUser(req.user as User));
   });
 }

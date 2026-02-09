@@ -12,15 +12,18 @@ import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { User, ROLES } from "@shared/schema";
-import { Coins, AlertTriangle, Loader2, RotateCcw, ArrowUpRight } from "lucide-react";
+import { Coins, AlertTriangle, Loader2, RotateCcw, ArrowUpRight, Search, Filter } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { buildUrl } from "@shared/routes";
 import { api } from "@shared/routes";
+import { useTeams } from "@/hooks/use-team";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function TeamPage() {
   const { user: currentUser } = useAuth();
   const [, setLocation] = useLocation();
   const { data: users, isLoading } = useUsers();
+  const { data: teams } = useTeams();
   const { mutate: createTransaction, isPending } = useCreateTransaction();
   const { mutate: zeroOut, isPending: isZeroing } = useZeroOut();
   const { toast } = useToast();
@@ -36,12 +39,28 @@ export default function TeamPage() {
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   const [showZeroConfirm, setShowZeroConfirm] = useState<any>(null);
+  const [searchName, setSearchName] = useState("");
+  const [filterTeamId, setFilterTeamId] = useState<string>("all");
+  const [filterRole, setFilterRole] = useState<string>("all");
 
   const filteredUsers = users?.filter((u: any) => {
     if (u.role === ROLES.ADMIN) return false;
-    if (currentUser?.role === ROLES.ADMIN) return true;
-    if (currentUser?.role === ROLES.ROP) return u.teamId === currentUser.teamId;
-    return false;
+    if (currentUser?.role === ROLES.ROP && u.teamId !== currentUser.teamId) return false;
+
+    if (searchName.trim()) {
+      const q = searchName.trim().toLowerCase();
+      if (!u.name?.toLowerCase().includes(q) && !u.username?.toLowerCase().includes(q)) return false;
+    }
+
+    if (filterTeamId !== "all") {
+      if (String(u.teamId) !== filterTeamId) return false;
+    }
+
+    if (filterRole !== "all") {
+      if (u.role !== filterRole) return false;
+    }
+
+    return true;
   });
 
   const handleTransaction = () => {
@@ -86,6 +105,51 @@ export default function TeamPage() {
         <h2 className="text-3xl font-bold" data-testid="text-team-title">Управление командой</h2>
         <p className="text-muted-foreground mt-1">Начисляйте монеты и управляйте сотрудниками</p>
       </div>
+
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Поиск по имени..."
+                value={searchName}
+                onChange={(e) => setSearchName(e.target.value)}
+                className="pl-9"
+                data-testid="input-search-name"
+              />
+            </div>
+            {currentUser?.role === ROLES.ADMIN && teams && teams.length > 0 && (
+              <Select value={filterTeamId} onValueChange={setFilterTeamId}>
+                <SelectTrigger className="w-full sm:w-[200px]" data-testid="select-filter-team">
+                  <SelectValue placeholder="Все команды" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Все команды</SelectItem>
+                  {teams.map((t: any) => (
+                    <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Select value={filterRole} onValueChange={setFilterRole}>
+              <SelectTrigger className="w-full sm:w-[200px]" data-testid="select-filter-role">
+                <SelectValue placeholder="Все роли" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Все роли</SelectItem>
+                <SelectItem value="MANAGER">Менеджер</SelectItem>
+                <SelectItem value="ROP">РОП</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {filteredUsers && (
+            <p className="text-sm text-muted-foreground mt-3" data-testid="text-filter-count">
+              Найдено: {filteredUsers.length}
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredUsers?.map((user: any) => (

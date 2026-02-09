@@ -76,7 +76,7 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">{user?.name}</p>
-            <p className="text-xs text-muted-foreground truncate capitalize">{user?.role?.toLowerCase()}</p>
+            <p className="text-xs text-muted-foreground truncate">{user?.role === "ADMIN" ? "Админ" : user?.role === "ROP" ? "РОП" : "Менеджер"}</p>
           </div>
         </div>
         <Button variant="outline" className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20" onClick={() => logout()}>

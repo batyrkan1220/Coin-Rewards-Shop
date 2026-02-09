@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Check, X, PackageCheck, Loader2 } from "lucide-react";
+import { Check, X, PackageCheck, Loader2, Coins } from "lucide-react";
 import { ROLES } from "@shared/schema";
 import { useState } from "react";
 
@@ -26,7 +26,7 @@ export default function RequestsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-3xl font-display font-bold">Заявки на награды 📝</h2>
+        <h2 className="text-3xl font-display font-bold">Заявки на награды</h2>
         <p className="text-muted-foreground mt-1">Отслеживайте статус своих заявок</p>
       </div>
 
@@ -52,12 +52,12 @@ export default function RequestsPage() {
                     <div className="flex items-center gap-4 min-w-[200px]">
                       <Avatar className="h-16 w-16 rounded-lg border border-border/50">
                         <AvatarImage src={r.item.imageUrl || ""} className="object-cover" />
-                        <AvatarFallback className="rounded-lg">🎁</AvatarFallback>
+                        <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-xs">P</AvatarFallback>
                       </Avatar>
                       <div>
                         <h4 className="font-bold">{r.item.title}</h4>
                         <p className="text-sm text-muted-foreground flex gap-2">
-                           <span className="text-accent-foreground font-medium">{r.priceCoinsSnapshot} 🪙</span>
+                           <span className="text-accent-foreground font-medium flex items-center gap-1">{r.priceCoinsSnapshot} <Coins className="w-3 h-3" /></span>
                         </p>
                       </div>
                     </div>

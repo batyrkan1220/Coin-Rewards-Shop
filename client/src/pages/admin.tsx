@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useShopItems, useCreateShopItem, useUpdateShopItem } from "@/hooks/use-shop";
 import { useUsers, useTeams, useCreateUser, useUpdateUser, useCreateTeam, useUpdateTeam } from "@/hooks/use-team";
 import { useLessons, useCreateLesson, useUpdateLesson } from "@/hooks/use-lessons";
-import { useAllTransactions } from "@/hooks/use-transactions";
+import { useAllTransactions, useBalance } from "@/hooks/use-transactions";
 import { useRedemptions, useUpdateRedemptionStatus } from "@/hooks/use-redemptions";
 import { useAuditLogs } from "@/hooks/use-audit";
 import { useForm } from "react-hook-form";
@@ -100,6 +100,11 @@ export default function AdminPage() {
   );
 }
 
+function UserBalanceCell({ userId }: { userId: number }) {
+  const { data: balance } = useBalance(userId);
+  return <span className="font-mono font-bold">{balance ?? 0}</span>;
+}
+
 function UsersTab() {
   const { data: users, isLoading } = useUsers();
   const { data: teams } = useTeams();
@@ -166,6 +171,7 @@ function UsersTab() {
               <th className="text-left p-3 font-medium">Email</th>
               <th className="text-left p-3 font-medium">Роль</th>
               <th className="text-left p-3 font-medium">Команда</th>
+              <th className="text-left p-3 font-medium">Баланс</th>
               <th className="text-left p-3 font-medium">Статус</th>
               <th className="text-left p-3 font-medium">Действия</th>
             </tr>
@@ -181,6 +187,7 @@ function UsersTab() {
                   </Badge>
                 </td>
                 <td className="p-3 text-muted-foreground">{u.team?.name || "—"}</td>
+                <td className="p-3" data-testid={`text-balance-${u.id}`}><UserBalanceCell userId={u.id} /></td>
                 <td className="p-3">
                   <Badge variant={u.isActive ? "default" : "destructive"}>
                     {u.isActive ? "Активен" : "Заблокирован"}
@@ -469,7 +476,7 @@ function ShopTab() {
             {items?.map((item: any) => (
               <tr key={item.id} className="border-t" data-testid={`row-item-${item.id}`}>
                 <td className="p-3 font-medium">{item.title}</td>
-                <td className="p-3">{item.priceCoins} coins</td>
+                <td className="p-3">{item.priceCoins} монет</td>
                 <td className="p-3">{item.stock ?? "—"}</td>
                 <td className="p-3">
                   <Badge variant={item.isActive ? "default" : "destructive"}>

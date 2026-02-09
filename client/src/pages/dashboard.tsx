@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowUpRight, ArrowDownLeft, Clock, ShoppingBag } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, Clock, ShoppingBag, Coins } from "lucide-react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { motion } from "framer-motion";
@@ -26,7 +26,7 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row gap-6 md:items-end justify-between">
         <div>
           <h2 className="text-3xl font-display font-bold text-foreground">
-            Привет, {user?.name}! 👋
+            Привет, {user?.name}!
           </h2>
           <p className="text-muted-foreground mt-2">
             Вот обзор вашей активности и баланса.
@@ -42,7 +42,7 @@ export default function Dashboard() {
               <CardTitle className="text-sm font-medium text-blue-100 uppercase tracking-wider">Текущий баланс</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-4xl font-display font-bold">{balance} 🪙</div>
+              <div className="text-4xl font-display font-bold flex items-center gap-2">{balance} <Coins className="w-7 h-7 text-white/80" /></div>
             </CardContent>
           </Card>
         </motion.div>
@@ -129,7 +129,7 @@ export default function Dashboard() {
                     <div key={r.id} className="flex items-center gap-4 p-3 rounded-lg border border-border bg-card hover:shadow-sm transition-all">
                       <Avatar className="h-10 w-10 rounded-lg">
                         <AvatarImage src={r.item.imageUrl || ""} />
-                        <AvatarFallback className="rounded-lg">🎁</AvatarFallback>
+                        <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-xs">P</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm truncate">{r.item.title}</p>
@@ -144,8 +144,8 @@ export default function Dashboard() {
                             {r.status === 'REJECTED' && 'Отклонено'}
                             {r.status === 'ISSUED' && 'Выдано'}
                           </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {r.priceCoinsSnapshot} 🪙
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            {r.priceCoinsSnapshot} <Coins className="w-3 h-3" />
                           </span>
                         </div>
                       </div>

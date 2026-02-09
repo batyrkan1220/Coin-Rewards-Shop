@@ -29,7 +29,9 @@ export function useCreateRedemption() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.redemptions.list.path] });
-      queryClient.invalidateQueries({ queryKey: ["balance"] }); // Update balance immediately
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === "balance" });
+      queryClient.invalidateQueries({ queryKey: [api.transactions.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.transactions.listAll.path] });
     },
   });
 }
@@ -47,6 +49,11 @@ export function useUpdateRedemptionStatus() {
       if (!res.ok) throw new Error("Ошибка обновления статуса");
       return await res.json();
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.redemptions.list.path] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.redemptions.list.path] });
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === "balance" });
+      queryClient.invalidateQueries({ queryKey: [api.transactions.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.transactions.listAll.path] });
+    },
   });
 }

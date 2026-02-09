@@ -103,6 +103,17 @@ export async function registerRoutes(
         comment: input.comment,
         status: REDEMPTION_STATUS.PENDING
       });
+
+      await storage.createTransaction({
+        userId: user.id,
+        type: TRANSACTION_TYPES.SPEND,
+        amount: -item.priceCoins,
+        reason: `Магазин: ${item.title}`,
+        refType: "redemption",
+        refId: redemption.id,
+        createdById: user.id
+      });
+
       res.status(201).json(redemption);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
@@ -118,12 +129,12 @@ export async function registerRoutes(
 
       const updated = await storage.updateRedemptionStatus(redemptionId, status, user.id);
 
-      if (status === REDEMPTION_STATUS.APPROVED) {
+      if (status === REDEMPTION_STATUS.REJECTED) {
         await storage.createTransaction({
           userId: updated.userId,
-          type: TRANSACTION_TYPES.SPEND,
-          amount: -updated.priceCoinsSnapshot,
-          reason: `Магазин: заявка #${updated.id}`,
+          type: TRANSACTION_TYPES.EARN,
+          amount: updated.priceCoinsSnapshot,
+          reason: `Возврат: заявка #${updated.id} отклонена`,
           refType: "redemption",
           refId: updated.id,
           createdById: user.id

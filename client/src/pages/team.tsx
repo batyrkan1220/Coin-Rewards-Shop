@@ -30,7 +30,7 @@ export default function TeamPage() {
 
   useEffect(() => {
     if (currentUser && currentUser.role !== ROLES.ADMIN && currentUser.role !== ROLES.ROP) {
-      setLocation("/");
+      setLocation("/dashboard");
     }
   }, [currentUser, setLocation]);
 

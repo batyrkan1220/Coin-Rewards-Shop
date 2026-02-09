@@ -27,13 +27,13 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
   const navItems: { icon: any; label: string; href: string }[] = [];
 
   if (user?.role === ROLES.ADMIN) {
-    navItems.push({ icon: Home, label: "Главная", href: "/" });
+    navItems.push({ icon: Home, label: "Главная", href: "/dashboard" });
     navItems.push({ icon: ShoppingBag, label: "Магазин", href: "/shop" });
     navItems.push({ icon: BookOpen, label: "Уроки", href: "/lessons" });
     navItems.push({ icon: Users, label: "Команда", href: "/team" });
     navItems.push({ icon: Settings, label: "Админ", href: "/admin" });
   } else {
-    navItems.push({ icon: Home, label: "Главная", href: "/" });
+    navItems.push({ icon: Home, label: "Главная", href: "/dashboard" });
     navItems.push({ icon: ShoppingBag, label: "Магазин", href: "/shop" });
     navItems.push({ icon: BookOpen, label: "Уроки", href: "/lessons" });
     navItems.push({ icon: FileText, label: "Мои заявки", href: "/requests" });

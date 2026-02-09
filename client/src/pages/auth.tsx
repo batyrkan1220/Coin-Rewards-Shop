@@ -20,7 +20,7 @@ export default function AuthPage() {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    if (user) setLocation("/");
+    if (user) setLocation("/dashboard");
   }, [user, setLocation]);
 
   const form = useForm<z.infer<typeof loginSchema>>({

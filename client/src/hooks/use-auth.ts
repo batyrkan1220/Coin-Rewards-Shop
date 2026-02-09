@@ -42,7 +42,7 @@ export function useAuth() {
     },
     onSuccess: (data) => {
       queryClient.setQueryData([api.auth.me.path], data);
-      setLocation("/");
+      setLocation("/dashboard");
     },
   });
 

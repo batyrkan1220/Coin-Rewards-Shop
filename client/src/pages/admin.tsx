@@ -64,7 +64,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (user && user.role !== ROLES.ADMIN) {
-      setLocation("/");
+      setLocation("/dashboard");
     }
   }, [user, setLocation]);
 

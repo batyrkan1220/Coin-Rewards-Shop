@@ -9,6 +9,7 @@ import { useEffect } from "react";
 
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth";
+import HomePage from "@/pages/home";
 import Dashboard from "@/pages/dashboard";
 import LayoutShell from "@/components/layout-shell";
 import ShopPage from "@/pages/shop";
@@ -49,10 +50,11 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
 function Router() {
   return (
     <Switch>
+      <Route path="/" component={HomePage} />
       <Route path="/auth" component={AuthPage} />
       
       {/* Protected Routes */}
-      <Route path="/">
+      <Route path="/dashboard">
         <ProtectedRoute component={Dashboard} />
       </Route>
       <Route path="/shop">

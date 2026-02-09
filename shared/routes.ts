@@ -220,6 +220,22 @@ export const api = {
         403: errorSchemas.unauthorized,
       },
     },
+    get: {
+      method: "GET" as const,
+      path: "/api/lessons/:id" as const,
+      responses: {
+        200: z.custom<typeof lessons.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    delete: {
+      method: "DELETE" as const,
+      path: "/api/lessons/:id" as const,
+      responses: {
+        200: z.object({ success: z.boolean() }),
+        403: errorSchemas.unauthorized,
+      },
+    },
   },
   users: {
     list: {

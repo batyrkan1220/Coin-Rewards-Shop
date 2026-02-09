@@ -33,6 +33,8 @@ export const REDEMPTION_STATUS = {
 export const CONTENT_TYPES = {
   LINK: "LINK",
   TEXT: "TEXT",
+  VIDEO: "VIDEO",
+  ARTICLE: "ARTICLE",
 } as const;
 
 // === TABLES ===

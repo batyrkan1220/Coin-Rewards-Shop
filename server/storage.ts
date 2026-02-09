@@ -39,8 +39,10 @@ export interface IStorage {
   updateRedemptionStatus(id: number, status: string, actorId: number): Promise<Redemption>;
 
   listLessons(): Promise<Lesson[]>;
+  getLesson(id: number): Promise<Lesson | undefined>;
   createLesson(lesson: InsertLesson): Promise<Lesson>;
   updateLesson(id: number, updates: Partial<InsertLesson>): Promise<Lesson>;
+  deleteLesson(id: number): Promise<void>;
 
   createAuditLog(log: { actorId: number; action: string; entity: string; entityId?: number; details?: any }): Promise<AuditLog>;
   listAuditLogs(): Promise<(AuditLog & { actor: User | null })[]>;
@@ -218,9 +220,18 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  async getLesson(id: number): Promise<Lesson | undefined> {
+    const [result] = await db.select().from(lessons).where(eq(lessons.id, id));
+    return result;
+  }
+
   async updateLesson(id: number, updates: Partial<InsertLesson>): Promise<Lesson> {
     const [result] = await db.update(lessons).set(updates).where(eq(lessons.id, id)).returning();
     return result;
+  }
+
+  async deleteLesson(id: number): Promise<void> {
+    await db.delete(lessons).where(eq(lessons.id, id));
   }
 
   async createAuditLog(log: { actorId: number; action: string; entity: string; entityId?: number; details?: any }): Promise<AuditLog> {

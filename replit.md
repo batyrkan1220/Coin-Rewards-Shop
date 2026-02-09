@@ -56,9 +56,20 @@ client/src/
 ## Key Features
 - Three-step redemption workflow: PENDING -> APPROVED -> ISSUED
 - Coins deducted on APPROVED status
+- Transaction approval workflow: ROP transactions PENDING, Admin auto-APPROVED
+- Balance only counts APPROVED transactions
 - Zero-out creates ADJUST transaction (preserves history)
 - Full audit trail for all admin operations
-- Russian UI throughout
+- Lessons support VIDEO (YouTube embedded), ARTICLE (rich text), and LINK content types
+- YouTube videos play embedded within the platform (no redirect to YouTube)
+- Russian UI throughout, no emojis
+
+## Content Types for Lessons
+- **VIDEO**: YouTube link, embedded player via iframe on platform
+- **ARTICLE**: Full text content displayed within the platform
+- **LINK**: External link with iframe preview and fallback external link button
 
 ## Recent Changes
+- 2026-02-09: Added VIDEO/ARTICLE/LINK content types for lessons, embedded YouTube player, article viewer, lesson detail page within platform, admin CRUD for lessons with delete, content type selector in admin
+- 2026-02-09: Transaction approval workflow, balance filters by APPROVED status, dashboard stats filter APPROVED only
 - 2026-02-09: Fixed storage.ts class structure bug, added full Admin CRUD routes, expanded admin page to 7 tabs, added zero-out functionality, added audit log viewing

@@ -270,6 +270,12 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/lessons/:id", requireAuth, async (req, res) => {
+    const lesson = await storage.getLesson(Number(req.params.id));
+    if (!lesson) return res.status(404).json({ message: "Урок не найден" });
+    res.json(lesson);
+  });
+
   app.patch(api.lessons.update.path, requireRole([ROLES.ADMIN]), async (req, res) => {
     try {
       const input = api.lessons.update.input.parse(req.body);
@@ -280,6 +286,14 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
       throw err;
     }
+  });
+
+  app.delete("/api/lessons/:id", requireRole([ROLES.ADMIN]), async (req, res) => {
+    const lesson = await storage.getLesson(Number(req.params.id));
+    if (!lesson) return res.status(404).json({ message: "Урок не найден" });
+    await storage.deleteLesson(Number(req.params.id));
+    await audit(req.user!.id, "DELETE_LESSON", "lesson", lesson.id, { title: lesson.title });
+    res.json({ success: true });
   });
 
   // === USERS ===

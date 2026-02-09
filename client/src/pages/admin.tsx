@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useShopItems, useCreateShopItem, useUpdateShopItem } from "@/hooks/use-shop";
 import { useUsers, useTeams, useCreateUser, useUpdateUser, useCreateTeam, useUpdateTeam } from "@/hooks/use-team";
-import { useLessons, useCreateLesson, useUpdateLesson } from "@/hooks/use-lessons";
+import { useLessons, useCreateLesson, useUpdateLesson, useDeleteLesson } from "@/hooks/use-lessons";
 import { useAllTransactions, useBalance } from "@/hooks/use-transactions";
 import { useRedemptions, useUpdateRedemptionStatus } from "@/hooks/use-redemptions";
 import { useAuditLogs } from "@/hooks/use-audit";
@@ -22,7 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Pencil, Check, X, Package, Users, BookOpen, ShoppingBag, List, Shield, ArrowUpRight, ArrowDownLeft } from "lucide-react";
+import { Loader2, Plus, Pencil, Check, X, Package, Users, BookOpen, ShoppingBag, List, Shield, ArrowUpRight, ArrowDownLeft, Trash2, Video, FileText, Link as LinkIcon } from "lucide-react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 
@@ -593,23 +593,100 @@ function ShopTab() {
   );
 }
 
+function LessonFormFields({ formInstance, isCreate }: { formInstance: any; isCreate?: boolean }) {
+  const contentType = formInstance.watch("contentType");
+  const prefix = isCreate ? "" : "edit-";
+
+  return (
+    <>
+      <FormField control={formInstance.control} name="course" render={({ field }) => (
+        <FormItem><FormLabel>Курс</FormLabel><FormControl><Input placeholder="Например: Основы продаж" {...field} data-testid={`input-${prefix}lesson-course`} /></FormControl><FormMessage /></FormItem>
+      )} />
+      <FormField control={formInstance.control} name="title" render={({ field }) => (
+        <FormItem><FormLabel>Название урока</FormLabel><FormControl><Input {...field} data-testid={`input-${prefix}lesson-title`} /></FormControl><FormMessage /></FormItem>
+      )} />
+      <FormField control={formInstance.control} name="contentType" render={({ field }) => (
+        <FormItem><FormLabel>Тип контента</FormLabel>
+          <Select onValueChange={field.onChange} value={field.value}>
+            <FormControl><SelectTrigger data-testid={`select-${prefix}lesson-type`}><SelectValue /></SelectTrigger></FormControl>
+            <SelectContent>
+              <SelectItem value="VIDEO"><span className="flex items-center gap-2"><Video className="w-4 h-4" /> Видео (YouTube)</span></SelectItem>
+              <SelectItem value="ARTICLE"><span className="flex items-center gap-2"><FileText className="w-4 h-4" /> Статья</span></SelectItem>
+              <SelectItem value="LINK"><span className="flex items-center gap-2"><LinkIcon className="w-4 h-4" /> Ссылка</span></SelectItem>
+            </SelectContent>
+          </Select>
+        <FormMessage /></FormItem>
+      )} />
+      <FormField control={formInstance.control} name="content" render={({ field }) => (
+        <FormItem>
+          <FormLabel>
+            {contentType === "VIDEO" ? "Ссылка на YouTube видео" : contentType === "ARTICLE" ? "Текст статьи" : "Ссылка на материал"}
+          </FormLabel>
+          <FormControl>
+            {contentType === "ARTICLE" ? (
+              <Textarea placeholder="Напишите текст статьи..." className="min-h-[200px]" {...field} data-testid={`input-${prefix}lesson-content`} />
+            ) : (
+              <Input placeholder={contentType === "VIDEO" ? "https://www.youtube.com/watch?v=..." : "https://..."} {...field} data-testid={`input-${prefix}lesson-content`} />
+            )}
+          </FormControl>
+          {contentType === "VIDEO" && (
+            <p className="text-xs text-muted-foreground">Вставьте ссылку на YouTube видео. Видео будет воспроизводиться прямо на платформе.</p>
+          )}
+          <FormMessage />
+        </FormItem>
+      )} />
+      <FormField control={formInstance.control} name="orderIndex" render={({ field }) => (
+        <FormItem><FormLabel>Порядок отображения</FormLabel><FormControl><Input type="number" {...field} data-testid={`input-${prefix}lesson-order`} /></FormControl><FormMessage /></FormItem>
+      )} />
+      {!isCreate && (
+        <FormField control={formInstance.control} name="isActive" render={({ field }) => (
+          <FormItem className="flex items-center gap-2">
+            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} data-testid={`switch-${prefix}lesson-active`} /></FormControl>
+            <FormLabel className="!mt-0">{field.value ? "Активен" : "Скрыт"}</FormLabel>
+          </FormItem>
+        )} />
+      )}
+    </>
+  );
+}
+
 function LessonsTab() {
   const { data: lessons, isLoading } = useLessons();
   const { mutate: createLesson, isPending: isCreating } = useCreateLesson();
   const { mutate: updateLesson, isPending: isUpdating } = useUpdateLesson();
+  const { mutate: deleteLesson, isPending: isDeleting } = useDeleteLesson();
   const { toast } = useToast();
   const [showCreate, setShowCreate] = useState(false);
   const [editingLesson, setEditingLesson] = useState<any>(null);
+  const [deletingLesson, setDeletingLesson] = useState<any>(null);
 
   const form = useForm<z.infer<typeof lessonSchema>>({
     resolver: zodResolver(lessonSchema),
-    defaultValues: { course: "", title: "", contentType: "LINK", content: "", orderIndex: 0, isActive: true },
+    defaultValues: { course: "", title: "", contentType: "VIDEO", content: "", orderIndex: 0, isActive: true },
   });
 
   const editForm = useForm<z.infer<typeof lessonSchema>>({
     resolver: zodResolver(lessonSchema),
-    defaultValues: { course: "", title: "", contentType: "LINK", content: "", orderIndex: 0, isActive: true },
+    defaultValues: { course: "", title: "", contentType: "VIDEO", content: "", orderIndex: 0, isActive: true },
   });
+
+  const contentTypeLabel = (type: string) => {
+    switch (type) {
+      case "VIDEO": return "Видео";
+      case "ARTICLE": return "Статья";
+      case "LINK": return "Ссылка";
+      case "TEXT": return "Текст";
+      default: return type;
+    }
+  };
+
+  const contentTypeIcon = (type: string) => {
+    switch (type) {
+      case "VIDEO": return <Video className="w-3.5 h-3.5" />;
+      case "ARTICLE": return <FileText className="w-3.5 h-3.5" />;
+      default: return <LinkIcon className="w-3.5 h-3.5" />;
+    }
+  };
 
   if (isLoading) return <div className="p-8"><Loader2 className="animate-spin" /></div>;
 
@@ -617,7 +694,7 @@ function LessonsTab() {
     <div className="space-y-4 mt-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-lg font-semibold">Уроки ({lessons?.length || 0})</h3>
-        <Button onClick={() => { form.reset(); setShowCreate(true); }} data-testid="button-add-lesson"><Plus className="w-4 h-4 mr-1" /> Добавить урок</Button>
+        <Button onClick={() => { form.reset({ course: "", title: "", contentType: "VIDEO", content: "", orderIndex: 0, isActive: true }); setShowCreate(true); }} data-testid="button-add-lesson"><Plus className="w-4 h-4 mr-1" /> Добавить урок</Button>
       </div>
 
       <div className="border rounded-md overflow-x-auto">
@@ -626,6 +703,7 @@ function LessonsTab() {
             <tr>
               <th className="text-left p-3 font-medium">Курс</th>
               <th className="text-left p-3 font-medium">Название</th>
+              <th className="text-left p-3 font-medium">Тип</th>
               <th className="text-left p-3 font-medium">Порядок</th>
               <th className="text-left p-3 font-medium">Статус</th>
               <th className="text-left p-3 font-medium">Действия</th>
@@ -636,6 +714,12 @@ function LessonsTab() {
               <tr key={l.id} className="border-t" data-testid={`row-lesson-${l.id}`}>
                 <td className="p-3 text-muted-foreground">{l.course}</td>
                 <td className="p-3 font-medium">{l.title}</td>
+                <td className="p-3">
+                  <Badge variant="outline" className="gap-1">
+                    {contentTypeIcon(l.contentType)}
+                    {contentTypeLabel(l.contentType)}
+                  </Badge>
+                </td>
                 <td className="p-3">{l.orderIndex}</td>
                 <td className="p-3">
                   <Badge variant={l.isActive ? "default" : "destructive"}>
@@ -643,19 +727,24 @@ function LessonsTab() {
                   </Badge>
                 </td>
                 <td className="p-3">
-                  <Button variant="ghost" size="icon" onClick={() => {
-                    setEditingLesson(l);
-                    editForm.reset({
-                      course: l.course,
-                      title: l.title,
-                      contentType: l.contentType,
-                      content: l.content,
-                      orderIndex: l.orderIndex,
-                      isActive: l.isActive,
-                    });
-                  }} data-testid={`button-edit-lesson-${l.id}`}>
-                    <Pencil className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => {
+                      setEditingLesson(l);
+                      editForm.reset({
+                        course: l.course,
+                        title: l.title,
+                        contentType: l.contentType,
+                        content: l.content,
+                        orderIndex: l.orderIndex,
+                        isActive: l.isActive,
+                      });
+                    }} data-testid={`button-edit-lesson-${l.id}`}>
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => setDeletingLesson(l)} data-testid={`button-delete-lesson-${l.id}`}>
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -664,7 +753,7 @@ function LessonsTab() {
       </div>
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Добавить урок</DialogTitle>
             <DialogDescription>Заполните данные урока</DialogDescription>
@@ -673,20 +762,10 @@ function LessonsTab() {
             <form onSubmit={form.handleSubmit((values) => {
               createLesson(values, {
                 onSuccess: () => { toast({ title: "Урок создан" }); setShowCreate(false); form.reset(); },
+                onError: (err) => toast({ title: "Ошибка", description: err.message, variant: "destructive" }),
               });
             })} className="space-y-4">
-              <FormField control={form.control} name="course" render={({ field }) => (
-                <FormItem><FormLabel>Курс</FormLabel><FormControl><Input placeholder="Sales Basics" {...field} data-testid="input-lesson-course" /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="title" render={({ field }) => (
-                <FormItem><FormLabel>Название урока</FormLabel><FormControl><Input {...field} data-testid="input-lesson-title" /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="content" render={({ field }) => (
-                <FormItem><FormLabel>Ссылка / Контент</FormLabel><FormControl><Input placeholder="https://..." {...field} data-testid="input-lesson-content" /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="orderIndex" render={({ field }) => (
-                <FormItem><FormLabel>Порядок</FormLabel><FormControl><Input type="number" {...field} data-testid="input-lesson-order" /></FormControl><FormMessage /></FormItem>
-              )} />
+              <LessonFormFields formInstance={form} isCreate />
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setShowCreate(false)}>Отмена</Button>
                 <Button type="submit" disabled={isCreating} data-testid="button-submit-lesson">
@@ -699,7 +778,7 @@ function LessonsTab() {
       </Dialog>
 
       <Dialog open={!!editingLesson} onOpenChange={(open) => !open && setEditingLesson(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Редактировать урок</DialogTitle>
             <DialogDescription>{editingLesson?.title}</DialogDescription>
@@ -708,26 +787,10 @@ function LessonsTab() {
             <form onSubmit={editForm.handleSubmit((values) => {
               updateLesson({ id: editingLesson.id, ...values }, {
                 onSuccess: () => { toast({ title: "Урок обновлен" }); setEditingLesson(null); },
+                onError: (err) => toast({ title: "Ошибка", description: err.message, variant: "destructive" }),
               });
             })} className="space-y-4">
-              <FormField control={editForm.control} name="course" render={({ field }) => (
-                <FormItem><FormLabel>Курс</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={editForm.control} name="title" render={({ field }) => (
-                <FormItem><FormLabel>Название</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={editForm.control} name="content" render={({ field }) => (
-                <FormItem><FormLabel>Ссылка / Контент</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={editForm.control} name="orderIndex" render={({ field }) => (
-                <FormItem><FormLabel>Порядок</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={editForm.control} name="isActive" render={({ field }) => (
-                <FormItem className="flex items-center gap-2">
-                  <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                  <FormLabel className="!mt-0">{field.value ? "Активен" : "Скрыт"}</FormLabel>
-                </FormItem>
-              )} />
+              <LessonFormFields formInstance={editForm} />
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setEditingLesson(null)}>Отмена</Button>
                 <Button type="submit" disabled={isUpdating}>
@@ -736,6 +799,26 @@ function LessonsTab() {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deletingLesson} onOpenChange={(open) => !open && setDeletingLesson(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Удалить урок</DialogTitle>
+            <DialogDescription>Вы уверены, что хотите удалить урок "{deletingLesson?.title}"? Это действие нельзя отменить.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeletingLesson(null)}>Отмена</Button>
+            <Button variant="destructive" disabled={isDeleting} onClick={() => {
+              deleteLesson(deletingLesson.id, {
+                onSuccess: () => { toast({ title: "Урок удален" }); setDeletingLesson(null); },
+                onError: (err) => toast({ title: "Ошибка", description: err.message, variant: "destructive" }),
+              });
+            }} data-testid="button-confirm-delete-lesson">
+              {isDeleting && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}Удалить
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -12,6 +12,19 @@ export function useLessons() {
   });
 }
 
+export function useLesson(id: number | null) {
+  return useQuery({
+    queryKey: ["/api/lessons", id],
+    queryFn: async () => {
+      if (!id) return null;
+      const res = await fetch(`/api/lessons/${id}`);
+      if (!res.ok) throw new Error("Failed to load lesson");
+      return await res.json();
+    },
+    enabled: !!id,
+  });
+}
+
 export function useCreateLesson() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -39,6 +52,23 @@ export function useUpdateLesson() {
         body: JSON.stringify(data),
       });
       if (!res.ok) throw new Error("Failed to update lesson");
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.lessons.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/lessons"] });
+    },
+  });
+}
+
+export function useDeleteLesson() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/lessons/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete lesson");
       return await res.json();
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.lessons.list.path] }),

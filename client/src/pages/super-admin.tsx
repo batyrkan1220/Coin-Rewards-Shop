@@ -134,6 +134,7 @@ function CompaniesTab() {
   const [editingCompany, setEditingCompany] = useState<CompanyWithDetails | null>(null);
   const [formData, setFormData] = useState({ name: "", subdomain: "", planId: "", adminUsername: "", adminPassword: "", adminName: "" });
   const [credentialsDialog, setCredentialsDialog] = useState<{ open: boolean; companyName: string; username: string; password: string }>({ open: false, companyName: "", username: "", password: "" });
+  const [adminCredDialog, setAdminCredDialog] = useState<{ open: boolean; company: CompanyWithDetails | null; newEmail: string; newPassword: string }>({ open: false, company: null, newEmail: "", newPassword: "" });
 
   const { data: companiesList, isLoading } = useQuery<CompanyWithDetails[]>({
     queryKey: ["/api/super/companies"],
@@ -178,6 +179,21 @@ function CompaniesTab() {
       setEditingCompany(null);
       resetForm();
       toast({ title: "Компания обновлена" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Ошибка", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const updateAdminCredMutation = useMutation({
+    mutationFn: async ({ companyId, data }: { companyId: number; data: { newEmail?: string; newPassword?: string } }) => {
+      const res = await apiRequest("PATCH", `/api/super/companies/${companyId}/admin-credentials`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/super/companies"] });
+      setAdminCredDialog({ open: false, company: null, newEmail: "", newPassword: "" });
+      toast({ title: "Данные администратора обновлены" });
     },
     onError: (err: any) => {
       toast({ title: "Ошибка", description: err.message, variant: "destructive" });
@@ -289,6 +305,16 @@ function CompaniesTab() {
                       data-testid={`switch-active-${company.id}`}
                     />
                   </div>
+                  {company.adminUser && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setAdminCredDialog({ open: true, company, newEmail: "", newPassword: "" })}
+                      data-testid={`button-admin-cred-${company.id}`}
+                    >
+                      <KeyRound className="w-4 h-4" />
+                    </Button>
+                  )}
                   <Button variant="outline" size="icon" onClick={() => openEdit(company)} data-testid={`button-edit-company-${company.id}`}>
                     <Pencil className="w-4 h-4" />
                   </Button>
@@ -386,6 +412,53 @@ function CompaniesTab() {
               data-testid="button-submit-company"
             >
               {(createMutation.isPending || updateMutation.isPending) ? "Сохранение..." : editingCompany ? "Сохранить" : "Создать"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={adminCredDialog.open} onOpenChange={(open) => { if (!open) setAdminCredDialog({ open: false, company: null, newEmail: "", newPassword: "" }); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Изменить данные администратора</DialogTitle>
+            <DialogDescription>
+              Компания: {adminCredDialog.company?.name}. Текущий логин: {adminCredDialog.company?.adminUser?.username}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Новый email (логин)</Label>
+              <Input
+                type="email"
+                value={adminCredDialog.newEmail}
+                onChange={(e) => setAdminCredDialog(p => ({ ...p, newEmail: e.target.value }))}
+                placeholder="Оставьте пустым, если не меняете"
+                data-testid="input-super-admin-email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Новый пароль</Label>
+              <Input
+                type="password"
+                value={adminCredDialog.newPassword}
+                onChange={(e) => setAdminCredDialog(p => ({ ...p, newPassword: e.target.value }))}
+                placeholder="Оставьте пустым, если не меняете"
+                data-testid="input-super-admin-password"
+              />
+            </div>
+            <Button
+              className="w-full"
+              disabled={updateAdminCredMutation.isPending || (!adminCredDialog.newEmail && !adminCredDialog.newPassword)}
+              onClick={() => {
+                if (!adminCredDialog.company) return;
+                const data: any = {};
+                if (adminCredDialog.newEmail) data.newEmail = adminCredDialog.newEmail;
+                if (adminCredDialog.newPassword) data.newPassword = adminCredDialog.newPassword;
+                updateAdminCredMutation.mutate({ companyId: adminCredDialog.company.id, data });
+              }}
+              data-testid="button-submit-admin-cred"
+            >
+              {updateAdminCredMutation.isPending ? "Сохранение..." : "Сохранить"}
             </Button>
           </div>
         </DialogContent>

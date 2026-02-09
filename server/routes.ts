@@ -123,6 +123,46 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/super/companies/:id/admin-credentials", requireSuperAdmin, async (req, res) => {
+    try {
+      const companyId = Number(req.params.id);
+      const input = api.superAdmin.companies.updateAdminCredentials.input.parse(req.body);
+
+      if (!input.newEmail && !input.newPassword) {
+        return res.status(400).json({ message: "Укажите новый email или пароль" });
+      }
+
+      const companyUsers = await storage.listUsers(companyId);
+      const adminUser = companyUsers.find(u => u.role === ROLES.ADMIN);
+      if (!adminUser) {
+        return res.status(404).json({ message: "Администратор компании не найден" });
+      }
+
+      const updates: any = {};
+      if (input.newEmail) {
+        const existing = await storage.getUserByUsername(input.newEmail);
+        if (existing && existing.id !== adminUser.id) {
+          return res.status(400).json({ message: "Пользователь с таким email уже существует" });
+        }
+        updates.username = input.newEmail;
+      }
+      if (input.newPassword) {
+        updates.password = await hashPassword(input.newPassword);
+      }
+
+      const updated = await storage.updateUser(adminUser.id, updates);
+      await audit(req.user!.id, "SUPER_UPDATE_ADMIN_CREDENTIALS", "user", updated.id, {
+        companyId,
+        ...(input.newEmail && { emailChanged: true }),
+        ...(input.newPassword && { passwordChanged: true }),
+      });
+      res.json(sanitizeUser(updated));
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
+      throw err;
+    }
+  });
+
   app.get(api.superAdmin.plans.list.path, requireSuperAdmin, async (_req, res) => {
     const plans = await storage.listPlans();
     res.json(plans);

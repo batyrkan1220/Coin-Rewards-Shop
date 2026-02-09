@@ -488,6 +488,19 @@ export const api = {
           400: errorSchemas.validation,
         },
       },
+      updateAdminCredentials: {
+        method: "PATCH" as const,
+        path: "/api/super/companies/:id/admin-credentials" as const,
+        input: z.object({
+          newEmail: z.string().email().optional(),
+          newPassword: z.string().min(6).optional(),
+        }),
+        responses: {
+          200: z.custom<typeof users.$inferSelect>(),
+          400: errorSchemas.badRequest,
+          404: errorSchemas.notFound,
+        },
+      },
     },
     plans: {
       list: {

@@ -14,12 +14,12 @@ export async function registerRoutes(
 
   const requireAuth = (req: any, res: any, next: any) => {
     if (req.isAuthenticated()) return next();
-    res.status(401).json({ message: "Not authenticated" });
+    res.status(401).json({ message: "Не авторизован" });
   };
 
   const requireRole = (roles: string[]) => (req: any, res: any, next: any) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
-    if (!roles.includes(req.user.role)) return res.status(403).json({ message: "Forbidden" });
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Не авторизован" });
+    if (!roles.includes(req.user.role)) return res.status(403).json({ message: "Доступ запрещён" });
     next();
   };
 
@@ -39,7 +39,7 @@ export async function registerRoutes(
 
   app.get(api.shop.get.path, requireAuth, async (req, res) => {
     const item = await storage.getShopItem(Number(req.params.id));
-    if (!item) return res.status(404).json({ message: "Item not found" });
+    if (!item) return res.status(404).json({ message: "Товар не найден" });
     res.json(item);
   });
 
@@ -73,10 +73,10 @@ export async function registerRoutes(
     const user = req.user!;
 
     if (scope === "all" && user.role !== ROLES.ADMIN) {
-      return res.status(403).json({ message: "Forbidden" });
+      return res.status(403).json({ message: "Доступ запрещён" });
     }
     if (scope === "team" && ![ROLES.ADMIN, ROLES.ROP].includes(user.role)) {
-      return res.status(403).json({ message: "Forbidden" });
+      return res.status(403).json({ message: "Доступ запрещён" });
     }
 
     const result = await storage.getRedemptions(scope as any, user.id, user.teamId);
@@ -89,7 +89,7 @@ export async function registerRoutes(
       const user = req.user!;
 
       const item = await storage.getShopItem(input.shopItemId);
-      if (!item) return res.status(404).json({ message: "Item not found" });
+      if (!item) return res.status(404).json({ message: "Товар не найден" });
 
       const balance = await storage.getBalance(user.id);
       if (balance < item.priceCoins) {
@@ -159,7 +159,7 @@ export async function registerRoutes(
       if (user.role === ROLES.ADMIN || user.role === ROLES.ROP) {
         targetUserId = requestedId;
       } else if (requestedId !== user.id) {
-        return res.status(403).json({ message: "Forbidden" });
+        return res.status(403).json({ message: "Доступ запрещён" });
       }
     }
 

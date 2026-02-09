@@ -74,7 +74,7 @@ export function setupAuth(app: Express) {
         return next(err);
       }
       if (!user) {
-        return res.status(401).json({ message: "Invalid credentials" });
+        return res.status(401).json({ message: "Неверные учётные данные" });
       }
       req.logIn(user, (err) => {
         if (err) {
@@ -94,7 +94,7 @@ export function setupAuth(app: Express) {
 
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Not authenticated" });
+      return res.status(401).json({ message: "Не авторизован" });
     }
     res.json(req.user);
   });

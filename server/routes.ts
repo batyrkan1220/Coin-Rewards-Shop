@@ -487,6 +487,14 @@ export async function registerRoutes(
   app.post(api.transactions.create.path, requireRole([ROLES.ADMIN, ROLES.ROP]), async (req, res) => {
     try {
       const input = api.transactions.create.input.parse(req.body);
+
+      if (input.type === TRANSACTION_TYPES.ADJUST && input.amount === 0) {
+        return res.status(400).json({ message: "Сумма коррекции не может быть 0" });
+      }
+      if (input.type === TRANSACTION_TYPES.EARN && input.amount <= 0) {
+        return res.status(400).json({ message: "Сумма начисления должна быть положительной" });
+      }
+
       const isAdmin = req.user!.role === ROLES.ADMIN;
       const status = isAdmin ? TRANSACTION_STATUS.APPROVED : TRANSACTION_STATUS.PENDING;
       const tx = await storage.createTransaction({
@@ -535,8 +543,12 @@ export async function registerRoutes(
     }
   });
 
-  app.get(api.transactions.pending.path, requireRole([ROLES.ADMIN]), async (req, res) => {
+  app.get(api.transactions.pending.path, requireRole([ROLES.ADMIN, ROLES.ROP]), async (req, res) => {
     const pending = await storage.getPendingTransactions(getCompanyId(req));
+    if (req.user!.role === ROLES.ROP) {
+      const myPending = pending.filter(tx => tx.createdById === req.user!.id);
+      return res.json(myPending);
+    }
     res.json(pending);
   });
 

@@ -63,17 +63,29 @@ export default function TeamPage() {
     return true;
   });
 
+  const isValidAmount = () => {
+    if (!amount) return false;
+    if (actionType === "ADJUST") {
+      return /^[+-]\d+$/.test(amount.trim());
+    }
+    const num = parseInt(amount);
+    return !isNaN(num) && num > 0;
+  };
+
   const handleTransaction = () => {
-    if (!selectedUser || !amount || !reason.trim()) return;
+    if (!selectedUser || !isValidAmount() || !reason.trim()) return;
+
+    const parsedAmount = actionType === "EARN" ? Math.abs(parseInt(amount)) : parseInt(amount);
 
     createTransaction({
       userId: selectedUser.id,
-      amount: parseInt(amount),
+      amount: parsedAmount,
       type: actionType,
       reason: reason.trim()
     }, {
       onSuccess: () => {
-        toast({ title: "Операция выполнена" });
+        const isRop = currentUser?.role === ROLES.ROP;
+        toast({ title: isRop ? "Операция отправлена на подтверждение администратору" : "Операция выполнена" });
         setSelectedUser(null);
         setAmount("");
         setReason("");
@@ -88,7 +100,8 @@ export default function TeamPage() {
     if (!showZeroConfirm) return;
     zeroOut(showZeroConfirm.id, {
       onSuccess: () => {
-        toast({ title: "Баланс обнулен" });
+        const isRop = currentUser?.role === ROLES.ROP;
+        toast({ title: isRop ? "Запрос на обнуление отправлен на подтверждение администратору" : "Баланс обнулен" });
         setShowZeroConfirm(null);
       },
       onError: (err) => {
@@ -151,7 +164,7 @@ export default function TeamPage() {
         </CardContent>
       </Card>
 
-      {currentUser?.role === ROLES.ADMIN && <PendingApprovalsSection users={users} />}
+      {(currentUser?.role === ROLES.ADMIN || currentUser?.role === ROLES.ROP) && <PendingApprovalsSection users={users} currentUser={currentUser} />}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredUsers?.map((user: any) => (
@@ -179,14 +192,21 @@ export default function TeamPage() {
             <div className="space-y-2">
               <Label>Сумма <span className="text-destructive">*</span></Label>
               <Input
-                type="number"
-                placeholder={actionType === "EARN" ? "100" : "-50"}
+                type={actionType === "EARN" ? "number" : "text"}
+                placeholder={actionType === "EARN" ? "100" : "+50 или -50"}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 data-testid="input-tx-amount"
               />
               {actionType === "ADJUST" && (
-                <p className="text-xs text-muted-foreground">Используйте отрицательное значение для списания</p>
+                <p className="text-xs text-muted-foreground">
+                  Обязательно укажите знак: +50 (добавить) или -50 (списать). Без знака не принимается.
+                </p>
+              )}
+              {actionType === "ADJUST" && amount && !isValidAmount() && (
+                <p className="text-xs text-destructive">
+                  Введите сумму со знаком + или - (например: +50 или -50)
+                </p>
               )}
             </div>
             <div className="space-y-2">
@@ -204,7 +224,7 @@ export default function TeamPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelectedUser(null)}>Отмена</Button>
-            <Button onClick={handleTransaction} disabled={isPending || !amount || !reason.trim()} data-testid="button-submit-tx">
+            <Button onClick={handleTransaction} disabled={isPending || !isValidAmount() || !reason.trim()} data-testid="button-submit-tx">
               {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {actionType === "EARN" ? "Начислить" : "Применить"}
             </Button>
@@ -219,6 +239,9 @@ export default function TeamPage() {
             <DialogDescription>
               Вы уверены, что хотите обнулить баланс пользователя <span className="font-bold text-foreground">{showZeroConfirm?.name}</span>?
               Это создаст корректировочную транзакцию. История сохранится.
+              {currentUser?.role === ROLES.ROP && (
+                <span className="block mt-2 font-medium text-amber-600">Запрос будет отправлен на подтверждение администратору.</span>
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -234,10 +257,11 @@ export default function TeamPage() {
   );
 }
 
-function PendingApprovalsSection({ users }: { users: any[] | undefined }) {
+function PendingApprovalsSection({ users, currentUser }: { users: any[] | undefined; currentUser: any }) {
   const { data: pending, isLoading } = usePendingTransactions();
   const { mutate: updateStatus, isPending } = useUpdateTransactionStatus();
   const { toast } = useToast();
+  const isAdmin = currentUser?.role === ROLES.ADMIN;
 
   const getUserName = (userId: number) => {
     const user = users?.find((u: any) => u.id === userId);
@@ -268,7 +292,9 @@ function PendingApprovalsSection({ users }: { users: any[] | undefined }) {
     <Card>
       <CardHeader className="flex flex-row items-center gap-3 pb-3">
         <Clock className="w-5 h-5 text-amber-500" />
-        <CardTitle className="text-lg">Ожидают подтверждения</CardTitle>
+        <CardTitle className="text-lg">
+          {isAdmin ? "Ожидают подтверждения" : "Ваши запросы на подтверждении"}
+        </CardTitle>
         <Badge variant="secondary">{pending.length}</Badge>
       </CardHeader>
       <CardContent>
@@ -285,31 +311,36 @@ function PendingApprovalsSection({ users }: { users: any[] | undefined }) {
                   <Coins className="w-4 h-4 text-muted-foreground" />
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {tx.reason} &middot; от {getCreatorName(tx.createdById)}
+                  {tx.reason} {isAdmin && <>&middot; от {getCreatorName(tx.createdById)}</>}
                 </p>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleAction(tx.id, "APPROVED")}
-                  disabled={isPending}
-                  data-testid={`button-approve-tx-${tx.id}`}
-                  className="text-green-600 border-green-200"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleAction(tx.id, "REJECTED")}
-                  disabled={isPending}
-                  data-testid={`button-reject-tx-${tx.id}`}
-                  className="text-destructive border-destructive/20"
-                >
-                  <XCircle className="w-4 h-4" />
-                </Button>
-              </div>
+              {isAdmin && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleAction(tx.id, "APPROVED")}
+                    disabled={isPending}
+                    data-testid={`button-approve-tx-${tx.id}`}
+                    className="text-green-600 border-green-200"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleAction(tx.id, "REJECTED")}
+                    disabled={isPending}
+                    data-testid={`button-reject-tx-${tx.id}`}
+                    className="text-destructive border-destructive/20"
+                  >
+                    <XCircle className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+              {!isAdmin && (
+                <Badge variant="secondary">На подтверждении</Badge>
+              )}
             </div>
           ))}
         </div>

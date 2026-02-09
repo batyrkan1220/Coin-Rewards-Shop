@@ -1,10 +1,10 @@
 import { db } from "./db";
 import {
-  users, teams, shopItems, coinTransactions, redemptions, lessons, auditLogs,
+  users, teams, shopItems, coinTransactions, redemptions, lessons, auditLogs, inviteTokens,
   type User, type InsertUser, type Team, type InsertTeam,
   type ShopItem, type InsertShopItem, type CoinTransaction, type InsertTransaction,
   type Redemption, type InsertRedemption, type Lesson, type InsertLesson,
-  type AuditLog,
+  type AuditLog, type InviteToken, type InsertInviteToken,
   REDEMPTION_STATUS, TRANSACTION_STATUS
 } from "@shared/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
@@ -46,6 +46,12 @@ export interface IStorage {
 
   createAuditLog(log: { actorId: number; action: string; entity: string; entityId?: number; details?: any }): Promise<AuditLog>;
   listAuditLogs(): Promise<(AuditLog & { actor: User | null })[]>;
+
+  createInviteToken(token: InsertInviteToken): Promise<InviteToken>;
+  getInviteTokenByToken(token: string): Promise<InviteToken | undefined>;
+  listInviteTokens(): Promise<InviteToken[]>;
+  markInviteTokenUsed(id: number, usedById: number): Promise<InviteToken>;
+  deactivateInviteToken(id: number): Promise<InviteToken>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -249,6 +255,36 @@ export class DatabaseStorage implements IStorage {
       return { ...log, actor };
     }));
     return enriched;
+  }
+
+  async createInviteToken(token: InsertInviteToken): Promise<InviteToken> {
+    const [result] = await db.insert(inviteTokens).values(token).returning();
+    return result;
+  }
+
+  async getInviteTokenByToken(token: string): Promise<InviteToken | undefined> {
+    const [result] = await db.select().from(inviteTokens).where(eq(inviteTokens.token, token));
+    return result;
+  }
+
+  async listInviteTokens(): Promise<InviteToken[]> {
+    return await db.select().from(inviteTokens).orderBy(desc(inviteTokens.createdAt));
+  }
+
+  async markInviteTokenUsed(id: number, usedById: number): Promise<InviteToken> {
+    const [result] = await db.update(inviteTokens)
+      .set({ usedById, usedAt: new Date(), isActive: false })
+      .where(eq(inviteTokens.id, id))
+      .returning();
+    return result;
+  }
+
+  async deactivateInviteToken(id: number): Promise<InviteToken> {
+    const [result] = await db.update(inviteTokens)
+      .set({ isActive: false })
+      .where(eq(inviteTokens.id, id))
+      .returning();
+    return result;
   }
 }
 

@@ -5,6 +5,7 @@ import { setupAuth, hashPassword } from "./auth";
 import { api } from "@shared/routes";
 import { ROLES, REDEMPTION_STATUS, TRANSACTION_TYPES, TRANSACTION_STATUS } from "@shared/schema";
 import { z } from "zod";
+import { randomBytes } from "crypto";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 export async function registerRoutes(
@@ -388,6 +389,145 @@ export async function registerRoutes(
   app.get(api.audit.list.path, requireRole([ROLES.ADMIN]), async (req, res) => {
     const logs = await storage.listAuditLogs();
     res.json(logs);
+  });
+
+  // === INVITES ===
+  app.get(api.invites.list.path, requireRole([ROLES.ADMIN]), async (req, res) => {
+    const tokens = await storage.listInviteTokens();
+    res.json(tokens);
+  });
+
+  app.post(api.invites.create.path, requireRole([ROLES.ADMIN]), async (req, res) => {
+    try {
+      const { teamId } = api.invites.create.input.parse(req.body);
+      const token = randomBytes(24).toString("hex");
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const invite = await storage.createInviteToken({
+        token,
+        teamId: teamId ?? null,
+        createdById: req.user!.id,
+        usedById: null,
+        expiresAt,
+        isActive: true,
+      });
+      await audit(req.user!.id, "CREATE_INVITE", "inviteToken", invite.id, { teamId });
+      res.status(201).json(invite);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
+      throw err;
+    }
+  });
+
+  app.get("/api/invites/validate/:token", async (req, res) => {
+    const invite = await storage.getInviteTokenByToken(req.params.token);
+    if (!invite || !invite.isActive) {
+      return res.status(400).json({ message: "Недействительная ссылка" });
+    }
+    if (invite.expiresAt && new Date(invite.expiresAt) < new Date()) {
+      return res.status(400).json({ message: "Ссылка истекла" });
+    }
+    if (invite.usedById) {
+      return res.status(400).json({ message: "Ссылка уже использована" });
+    }
+    res.json({ valid: true, teamId: invite.teamId });
+  });
+
+  app.patch(api.invites.deactivate.path, requireRole([ROLES.ADMIN]), async (req, res) => {
+    const invite = await storage.deactivateInviteToken(Number(req.params.id));
+    await audit(req.user!.id, "DEACTIVATE_INVITE", "inviteToken", invite.id);
+    res.json(invite);
+  });
+
+  // === REGISTER (via invite) ===
+  app.post(api.register.path, async (req, res) => {
+    try {
+      const input = api.register.input.parse(req.body);
+      const invite = await storage.getInviteTokenByToken(input.token);
+
+      if (!invite || !invite.isActive) {
+        return res.status(400).json({ message: "Недействительная ссылка для регистрации" });
+      }
+      if (invite.expiresAt && new Date(invite.expiresAt) < new Date()) {
+        return res.status(400).json({ message: "Ссылка для регистрации истекла" });
+      }
+      if (invite.usedById) {
+        return res.status(400).json({ message: "Ссылка уже использована" });
+      }
+
+      const existing = await storage.getUserByUsername(input.username);
+      if (existing) {
+        return res.status(400).json({ message: "Пользователь с таким email уже существует" });
+      }
+
+      const hashedPassword = await hashPassword(input.password);
+      const user = await storage.createUser({
+        username: input.username,
+        password: hashedPassword,
+        name: input.name,
+        role: ROLES.MANAGER,
+        isActive: true,
+        teamId: invite.teamId,
+      });
+
+      await storage.markInviteTokenUsed(invite.id, user.id);
+      await audit(user.id, "REGISTER_VIA_INVITE", "user", user.id, { inviteId: invite.id });
+
+      req.logIn(user, (err) => {
+        if (err) return res.status(500).json({ message: "Ошибка авторизации после регистрации" });
+        res.status(201).json(user);
+      });
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
+      throw err;
+    }
+  });
+
+  // === PROFILE ===
+  app.patch(api.profile.update.path, requireAuth, async (req, res) => {
+    try {
+      const input = api.profile.update.input.parse(req.body);
+      const user = req.user!;
+      const updates: any = {};
+
+      if (input.name) {
+        updates.name = input.name;
+      }
+
+      if (input.newPassword) {
+        if (!input.currentPassword) {
+          return res.status(400).json({ message: "Введите текущий пароль" });
+        }
+        const currentUser = await storage.getUser(user.id);
+        if (!currentUser) return res.status(404).json({ message: "Пользователь не найден" });
+
+        const { scrypt, timingSafeEqual } = await import("crypto");
+        const { promisify } = await import("util");
+        const scryptAsync = promisify(scrypt);
+        const [hashed, salt] = currentUser.password.split(".");
+        const hashedBuf = Buffer.from(hashed, "hex");
+        const suppliedBuf = (await scryptAsync(input.currentPassword, salt, 64)) as Buffer;
+        const passwordMatch = timingSafeEqual(hashedBuf, suppliedBuf);
+
+        if (!passwordMatch) {
+          return res.status(400).json({ message: "Неверный текущий пароль" });
+        }
+        updates.password = await hashPassword(input.newPassword);
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "Нет данных для обновления" });
+      }
+
+      const updated = await storage.updateUser(user.id, updates);
+      await audit(user.id, "UPDATE_PROFILE", "user", user.id, {
+        ...(input.name && { name: input.name }),
+        ...(input.newPassword && { passwordChanged: true }),
+      });
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
+      throw err;
+    }
   });
 
   // Seed data

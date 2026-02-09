@@ -10,7 +10,8 @@ import {
   coinTransactions,
   redemptions,
   lessons,
-  auditLogs
+  auditLogs,
+  inviteTokens
 } from "./schema";
 
 export const errorSchemas = {
@@ -312,6 +313,71 @@ export const api = {
       path: "/api/audit" as const,
       responses: {
         200: z.array(z.custom<typeof auditLogs.$inferSelect & { actor: typeof users.$inferSelect | null }>()),
+      },
+    },
+  },
+  invites: {
+    list: {
+      method: "GET" as const,
+      path: "/api/invites" as const,
+      responses: {
+        200: z.array(z.custom<typeof inviteTokens.$inferSelect>()),
+      },
+    },
+    create: {
+      method: "POST" as const,
+      path: "/api/invites" as const,
+      input: z.object({
+        teamId: z.number().nullable().optional(),
+      }),
+      responses: {
+        201: z.custom<typeof inviteTokens.$inferSelect>(),
+        403: errorSchemas.unauthorized,
+      },
+    },
+    validate: {
+      method: "GET" as const,
+      path: "/api/invites/validate/:token" as const,
+      responses: {
+        200: z.object({ valid: z.boolean(), teamId: z.number().nullable().optional() }),
+        400: errorSchemas.validation,
+      },
+    },
+    deactivate: {
+      method: "PATCH" as const,
+      path: "/api/invites/:id/deactivate" as const,
+      responses: {
+        200: z.custom<typeof inviteTokens.$inferSelect>(),
+        403: errorSchemas.unauthorized,
+      },
+    },
+  },
+  register: {
+    method: "POST" as const,
+    path: "/api/register" as const,
+    input: z.object({
+      token: z.string(),
+      username: z.string().min(1),
+      password: z.string().min(3),
+      name: z.string().min(1),
+    }),
+    responses: {
+      201: z.custom<typeof users.$inferSelect>(),
+      400: errorSchemas.validation,
+    },
+  },
+  profile: {
+    update: {
+      method: "PATCH" as const,
+      path: "/api/profile" as const,
+      input: z.object({
+        name: z.string().min(1).optional(),
+        currentPassword: z.string().optional(),
+        newPassword: z.string().min(3).optional(),
+      }),
+      responses: {
+        200: z.custom<typeof users.$inferSelect>(),
+        400: errorSchemas.validation,
       },
     },
   },

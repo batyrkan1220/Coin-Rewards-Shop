@@ -3,36 +3,32 @@ import { useShopItems } from "@/hooks/use-shop";
 import { useCreateRedemption } from "@/hooks/use-redemptions";
 import { useBalance } from "@/hooks/use-transactions";
 import { ItemCard } from "@/components/item-card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
-import { ShopItem } from "@shared/schema";
 import { Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ShopPage() {
   const { user } = useAuth();
   const { data: items, isLoading } = useShopItems();
   const { data: balance } = useBalance(user?.id);
   const { mutate: redeem, isPending: isRedeeming } = useCreateRedemption();
-
-  const [selectedItem, setSelectedItem] = useState<ShopItem | null>(null);
-  const [comment, setComment] = useState("");
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
 
-  const handleRedeem = () => {
-    if (!selectedItem || !comment.trim()) return;
-    redeem({ shopItemId: selectedItem.id, comment: comment.trim() }, {
+  const handleRedeem = (item: any) => {
+    redeem({ shopItemId: item.id }, {
       onSuccess: () => {
-        setSelectedItem(null);
-        setComment("");
+        toast({ title: "Заявка создана", description: `Товар "${item.title}" списан с баланса` });
+      },
+      onError: (err) => {
+        toast({ title: "Ошибка", description: err.message, variant: "destructive" });
       }
     });
   };
 
-  const filteredItems = items?.filter(item => 
-    item.isActive && 
+  const filteredItems = items?.filter((item: any) =>
+    item.isActive &&
     item.title.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -48,27 +44,29 @@ export default function ShopPage() {
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-display font-bold">Магазин наград 🎁</h2>
+          <h2 className="text-3xl font-display font-bold" data-testid="text-shop-title">Магазин наград</h2>
           <p className="text-muted-foreground mt-1">Обменяйте свои монеты на крутые призы</p>
         </div>
         <div className="relative w-full md:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input 
-            placeholder="Поиск товаров..." 
-            value={search} 
-            onChange={e => setSearch(e.target.value)} 
+          <Input
+            placeholder="Поиск товаров..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
             className="pl-9 bg-background border-border/50 focus:border-primary"
+            data-testid="input-shop-search"
           />
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredItems?.map((item) => (
-          <ItemCard 
-            key={item.id} 
-            item={item} 
-            canAfford={(balance || 0) >= item.priceCoins} 
-            onRedeem={setSelectedItem}
+        {filteredItems?.map((item: any) => (
+          <ItemCard
+            key={item.id}
+            item={item}
+            canAfford={(balance || 0) >= item.priceCoins}
+            onRedeem={handleRedeem}
+            isRedeeming={isRedeeming}
           />
         ))}
       </div>
@@ -78,40 +76,6 @@ export default function ShopPage() {
           <p className="text-muted-foreground">Товары не найдены</p>
         </div>
       )}
-
-      <Dialog open={!!selectedItem} onOpenChange={(open) => !open && setSelectedItem(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Подтверждение покупки</DialogTitle>
-            <DialogDescription>
-              Вы собираетесь приобрести "{selectedItem?.title}" за <span className="font-bold text-primary">{selectedItem?.priceCoins} монет</span>.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Номер заказа <span className="text-destructive">*</span></label>
-              <Input
-                placeholder="Введите номер заказа..."
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                data-testid="input-order-number"
-              />
-              {!comment.trim() && comment !== "" && (
-                <p className="text-xs text-destructive">Номер заказа обязателен</p>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter className="flex gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setSelectedItem(null)}>Отмена</Button>
-            <Button onClick={handleRedeem} disabled={isRedeeming || !comment.trim()} className="bg-primary shadow-lg shadow-primary/20">
-              {isRedeeming ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Подтвердить
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

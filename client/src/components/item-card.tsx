@@ -2,16 +2,17 @@ import { ShopItem } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Coins } from "lucide-react";
+import { Coins, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface ItemCardProps {
   item: ShopItem;
   canAfford: boolean;
   onRedeem: (item: ShopItem) => void;
+  isRedeeming?: boolean;
 }
 
-export function ItemCard({ item, canAfford, onRedeem }: ItemCardProps) {
+export function ItemCard({ item, canAfford, onRedeem, isRedeeming }: ItemCardProps) {
   return (
     <motion.div
       whileHover={{ y: -5 }}
@@ -19,10 +20,8 @@ export function ItemCard({ item, canAfford, onRedeem }: ItemCardProps) {
     >
       <Card className="h-full overflow-hidden border-border/50 shadow-md hover:shadow-xl transition-shadow bg-card flex flex-col">
         <div className="relative aspect-[4/3] bg-muted overflow-hidden">
-          {/* Descriptive comment for Unsplash fallback */}
-          {/* corporate gift tech gadget office reward */}
-          <img 
-            src={item.imageUrl || "https://images.unsplash.com/photo-1553484771-371af705e8a4?w=800&q=80"} 
+          <img
+            src={item.imageUrl || "https://images.unsplash.com/photo-1553484771-371af705e8a4?w=800&q=80"}
             alt={item.title}
             className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
           />
@@ -39,27 +38,31 @@ export function ItemCard({ item, canAfford, onRedeem }: ItemCardProps) {
             </div>
           )}
         </div>
-        
+
         <CardHeader className="pb-2">
           <h3 className="font-display font-bold text-lg leading-tight line-clamp-1">{item.title}</h3>
         </CardHeader>
-        
+
         <CardContent className="flex-1 pb-4">
           <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
             {item.description}
           </p>
         </CardContent>
-        
+
         <CardFooter className="pt-0">
-          <Button 
+          <Button
             className={`w-full font-semibold shadow-lg ${
-              canAfford 
-                ? "bg-primary hover:bg-primary/90 shadow-primary/25" 
+              canAfford
+                ? "bg-primary hover:bg-primary/90 shadow-primary/25"
                 : "opacity-80"
             }`}
-            disabled={!canAfford || (item.stock !== null && item.stock <= 0)}
+            disabled={!canAfford || (item.stock !== null && item.stock <= 0) || isRedeeming}
             onClick={() => onRedeem(item)}
+            data-testid={`button-redeem-${item.id}`}
           >
+            {isRedeeming ? (
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            ) : null}
             {item.stock !== null && item.stock <= 0 ? "Нет в наличии" : canAfford ? "Получить" : "Недостаточно монет"}
           </Button>
         </CardFooter>

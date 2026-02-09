@@ -45,13 +45,13 @@ export default function TeamPage() {
   });
 
   const handleTransaction = () => {
-    if (!selectedUser || !amount || !reason) return;
+    if (!selectedUser || !amount || !reason.trim()) return;
 
     createTransaction({
       userId: selectedUser.id,
       amount: parseInt(amount),
       type: actionType,
-      reason
+      reason: reason.trim()
     }, {
       onSuccess: () => {
         toast({ title: "Операция выполнена" });
@@ -111,7 +111,7 @@ export default function TeamPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Сумма</Label>
+              <Label>Сумма <span className="text-destructive">*</span></Label>
               <Input
                 type="number"
                 placeholder={actionType === "EARN" ? "100" : "-50"}
@@ -124,18 +124,21 @@ export default function TeamPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label>Причина / Комментарий</Label>
-              <Textarea
-                placeholder="За отличную работу над проектом..."
+              <Label>Номер заказа <span className="text-destructive">*</span></Label>
+              <Input
+                placeholder="Введите номер заказа..."
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                data-testid="input-tx-reason"
+                data-testid="input-tx-order-number"
               />
+              {!reason.trim() && reason !== "" && (
+                <p className="text-xs text-destructive">Номер заказа обязателен</p>
+              )}
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelectedUser(null)}>Отмена</Button>
-            <Button onClick={handleTransaction} disabled={isPending} data-testid="button-submit-tx">
+            <Button onClick={handleTransaction} disabled={isPending || !amount || !reason.trim()} data-testid="button-submit-tx">
               {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {actionType === "EARN" ? "Начислить" : "Применить"}
             </Button>

@@ -22,8 +22,8 @@ export default function ShopPage() {
   const [search, setSearch] = useState("");
 
   const handleRedeem = () => {
-    if (!selectedItem) return;
-    redeem({ shopItemId: selectedItem.id, comment }, {
+    if (!selectedItem || !comment.trim()) return;
+    redeem({ shopItemId: selectedItem.id, comment: comment.trim() }, {
       onSuccess: () => {
         setSelectedItem(null);
         setComment("");
@@ -90,19 +90,22 @@ export default function ShopPage() {
           
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Комментарий к заказу (необязательно)</label>
-              <Textarea 
-                placeholder="Размер, цвет, или пожелания..." 
+              <label className="text-sm font-medium">Номер заказа <span className="text-destructive">*</span></label>
+              <Input
+                placeholder="Введите номер заказа..."
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                className="resize-none focus:ring-primary/20"
+                data-testid="input-order-number"
               />
+              {!comment.trim() && comment !== "" && (
+                <p className="text-xs text-destructive">Номер заказа обязателен</p>
+              )}
             </div>
           </div>
 
           <DialogFooter className="flex gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setSelectedItem(null)}>Отмена</Button>
-            <Button onClick={handleRedeem} disabled={isRedeeming} className="bg-primary shadow-lg shadow-primary/20">
+            <Button onClick={handleRedeem} disabled={isRedeeming || !comment.trim()} className="bg-primary shadow-lg shadow-primary/20">
               {isRedeeming ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Подтвердить
             </Button>

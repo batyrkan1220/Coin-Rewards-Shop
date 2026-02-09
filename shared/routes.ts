@@ -1,21 +1,18 @@
-
 import { z } from "zod";
-import { 
-  insertUserSchema, 
-  insertTeamSchema, 
-  insertShopItemSchema, 
-  insertTransactionSchema, 
-  insertRedemptionSchema, 
+import {
+  insertUserSchema,
+  insertTeamSchema,
+  insertShopItemSchema,
   insertLessonSchema,
   users,
   teams,
   shopItems,
   coinTransactions,
   redemptions,
-  lessons
+  lessons,
+  auditLogs
 } from "./schema";
 
-// Shared error schemas
 export const errorSchemas = {
   validation: z.object({
     message: z.string(),
@@ -97,7 +94,7 @@ export const api = {
   redemptions: {
     list: {
       method: "GET" as const,
-      path: "/api/redemptions" as const, // Can filter by ?scope=my|team|all
+      path: "/api/redemptions" as const,
       input: z.object({
         scope: z.enum(["my", "team", "all"]).optional(),
       }).optional(),
@@ -114,7 +111,7 @@ export const api = {
       }),
       responses: {
         201: z.custom<typeof redemptions.$inferSelect>(),
-        400: errorSchemas.validation, // Insufficient funds
+        400: errorSchemas.validation,
       },
     },
     updateStatus: {
@@ -140,14 +137,32 @@ export const api = {
         200: z.array(z.custom<typeof coinTransactions.$inferSelect>()),
       },
     },
+    listAll: {
+      method: "GET" as const,
+      path: "/api/transactions/all" as const,
+      responses: {
+        200: z.array(z.custom<typeof coinTransactions.$inferSelect>()),
+      },
+    },
     create: {
       method: "POST" as const,
       path: "/api/transactions" as const,
       input: z.object({
         userId: z.number(),
         amount: z.number(),
-        type: z.enum(["EARN", "ADJUST"]),
+        type: z.enum(["EARN", "SPEND", "ADJUST"]),
         reason: z.string(),
+      }),
+      responses: {
+        201: z.custom<typeof coinTransactions.$inferSelect>(),
+        403: errorSchemas.unauthorized,
+      },
+    },
+    zeroOut: {
+      method: "POST" as const,
+      path: "/api/transactions/zero-out" as const,
+      input: z.object({
+        userId: z.number(),
       }),
       responses: {
         201: z.custom<typeof coinTransactions.$inferSelect>(),
@@ -179,6 +194,15 @@ export const api = {
         403: errorSchemas.unauthorized,
       },
     },
+    update: {
+      method: "PATCH" as const,
+      path: "/api/lessons/:id" as const,
+      input: insertLessonSchema.partial(),
+      responses: {
+        200: z.custom<typeof lessons.$inferSelect>(),
+        403: errorSchemas.unauthorized,
+      },
+    },
   },
   users: {
     list: {
@@ -191,16 +215,31 @@ export const api = {
     create: {
       method: "POST" as const,
       path: "/api/users" as const,
-      input: insertUserSchema,
+      input: z.object({
+        username: z.string().min(1),
+        password: z.string().min(3),
+        name: z.string().min(1),
+        role: z.enum(["MANAGER", "ROP", "ADMIN"]),
+        teamId: z.number().nullable().optional(),
+        isActive: z.boolean().optional(),
+      }),
       responses: {
         201: z.custom<typeof users.$inferSelect>(),
         403: errorSchemas.unauthorized,
+        400: errorSchemas.validation,
       },
     },
     update: {
       method: "PATCH" as const,
       path: "/api/users/:id" as const,
-      input: insertUserSchema.partial(),
+      input: z.object({
+        name: z.string().min(1).optional(),
+        username: z.string().min(1).optional(),
+        password: z.string().min(3).optional(),
+        role: z.enum(["MANAGER", "ROP", "ADMIN"]).optional(),
+        teamId: z.number().nullable().optional(),
+        isActive: z.boolean().optional(),
+      }),
       responses: {
         200: z.custom<typeof users.$inferSelect>(),
         403: errorSchemas.unauthorized,
@@ -239,10 +278,10 @@ export const api = {
       method: "GET" as const,
       path: "/api/audit" as const,
       responses: {
-        200: z.array(z.custom<typeof auditLogs.$inferSelect>()),
+        200: z.array(z.custom<typeof auditLogs.$inferSelect & { actor: typeof users.$inferSelect | null }>()),
       },
     },
-  }
+  },
 };
 
 export function buildUrl(path: string, params?: Record<string, string | number>): string {
@@ -256,3 +295,8 @@ export function buildUrl(path: string, params?: Record<string, string | number>)
   }
   return url;
 }
+
+export type InsertShopItem = z.infer<typeof api.shop.create.input>;
+export type InsertUser = z.infer<typeof api.users.create.input>;
+export type InsertTeam = z.infer<typeof api.teams.create.input>;
+export type InsertLesson = z.infer<typeof api.lessons.create.input>;

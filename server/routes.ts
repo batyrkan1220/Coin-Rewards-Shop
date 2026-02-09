@@ -1,9 +1,8 @@
-
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, hashPassword } from "./auth";
-import { api, errorSchemas } from "@shared/routes";
+import { api } from "@shared/routes";
 import { ROLES, REDEMPTION_STATUS, TRANSACTION_TYPES } from "@shared/schema";
 import { z } from "zod";
 
@@ -11,10 +10,8 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Setup Auth (Passport)
   setupAuth(app);
 
-  // === MIDDLEWARE ===
   const requireAuth = (req: any, res: any, next: any) => {
     if (req.isAuthenticated()) return next();
     res.status(401).json({ message: "Not authenticated" });
@@ -24,6 +21,14 @@ export async function registerRoutes(
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
     if (!roles.includes(req.user.role)) return res.status(403).json({ message: "Forbidden" });
     next();
+  };
+
+  const audit = async (actorId: number, action: string, entity: string, entityId?: number, details?: any) => {
+    try {
+      await storage.createAuditLog({ actorId, action, entity, entityId, details });
+    } catch (e) {
+      console.error("Audit log error:", e);
+    }
   };
 
   // === SHOP ===
@@ -42,9 +47,10 @@ export async function registerRoutes(
     try {
       const input = api.shop.create.input.parse(req.body);
       const item = await storage.createShopItem(input);
+      await audit(req.user!.id, "CREATE_SHOP_ITEM", "shopItem", item.id, { title: item.title });
       res.status(201).json(item);
     } catch (err) {
-      if (err instanceof z.ZodError) return res.status(400).json(err);
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
       throw err;
     }
   });
@@ -53,9 +59,10 @@ export async function registerRoutes(
     try {
       const input = api.shop.update.input.parse(req.body);
       const item = await storage.updateShopItem(Number(req.params.id), input);
+      await audit(req.user!.id, "UPDATE_SHOP_ITEM", "shopItem", item.id, input);
       res.json(item);
     } catch (err) {
-      if (err instanceof z.ZodError) return res.status(400).json(err);
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
       throw err;
     }
   });
@@ -64,8 +71,7 @@ export async function registerRoutes(
   app.get(api.redemptions.list.path, requireAuth, async (req, res) => {
     const scope = (req.query.scope as string) || "my";
     const user = req.user!;
-    
-    // Security check for scopes
+
     if (scope === "all" && user.role !== ROLES.ADMIN) {
       return res.status(403).json({ message: "Forbidden" });
     }
@@ -73,21 +79,21 @@ export async function registerRoutes(
       return res.status(403).json({ message: "Forbidden" });
     }
 
-    const redemptions = await storage.getRedemptions(scope as any, user.id, user.teamId);
-    res.json(redemptions);
+    const result = await storage.getRedemptions(scope as any, user.id, user.teamId);
+    res.json(result);
   });
 
   app.post(api.redemptions.create.path, requireAuth, async (req, res) => {
     try {
       const input = api.redemptions.create.input.parse(req.body);
       const user = req.user!;
-      
+
       const item = await storage.getShopItem(input.shopItemId);
       if (!item) return res.status(404).json({ message: "Item not found" });
 
       const balance = await storage.getBalance(user.id);
       if (balance < item.priceCoins) {
-        return res.status(400).json({ message: "Insufficient coins" });
+        return res.status(400).json({ message: "Недостаточно монет" });
       }
 
       const redemption = await storage.createRedemption({
@@ -99,7 +105,7 @@ export async function registerRoutes(
       });
       res.status(201).json(redemption);
     } catch (err) {
-      if (err instanceof z.ZodError) return res.status(400).json(err);
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
       throw err;
     }
   });
@@ -110,29 +116,24 @@ export async function registerRoutes(
       const redemptionId = Number(req.params.id);
       const user = req.user!;
 
-      // Get current state to verify permissions
-      // We don't have getRedemptionById exposed in storage public interface but updateRedemptionStatus uses ID
-      // Ideally we check ownership if ROP.
-      // For MVP, assuming ROP is approving for their team. In a real app we'd verify teamId match.
-      
       const updated = await storage.updateRedemptionStatus(redemptionId, status, user.id);
-      
-      // If APPROVED, deduct coins
+
       if (status === REDEMPTION_STATUS.APPROVED) {
         await storage.createTransaction({
           userId: updated.userId,
           type: TRANSACTION_TYPES.SPEND,
           amount: -updated.priceCoinsSnapshot,
-          reason: `Redemption: Item #${updated.shopItemId}`,
+          reason: `Магазин: заявка #${updated.id}`,
           refType: "redemption",
           refId: updated.id,
           createdById: user.id
         });
       }
 
+      await audit(user.id, `REDEMPTION_${status}`, "redemption", updated.id, { status });
       res.json(updated);
     } catch (err) {
-      if (err instanceof z.ZodError) return res.status(400).json(err);
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
       throw err;
     }
   });
@@ -142,13 +143,12 @@ export async function registerRoutes(
     const user = req.user!;
     let targetUserId = user.id;
 
-    // Admin/ROP can view others
     if (req.query.userId) {
       const requestedId = Number(req.query.userId);
-      if (user.role === ROLES.ADMIN || (user.role === ROLES.ROP /* && check team match */)) {
+      if (user.role === ROLES.ADMIN || user.role === ROLES.ROP) {
         targetUserId = requestedId;
       } else if (requestedId !== user.id) {
-         return res.status(403).json({ message: "Forbidden" });
+        return res.status(403).json({ message: "Forbidden" });
       }
     }
 
@@ -156,9 +156,13 @@ export async function registerRoutes(
     res.json(txs);
   });
 
+  app.get(api.transactions.listAll.path, requireRole([ROLES.ADMIN]), async (req, res) => {
+    const txs = await storage.getAllTransactions();
+    res.json(txs);
+  });
+
   app.get(api.transactions.balance.path, requireAuth, async (req, res) => {
     const userId = Number(req.params.userId);
-    // Add permission check if needed (viewing others' balance)
     const balance = await storage.getBalance(userId);
     res.json({ balance });
   });
@@ -170,34 +174,75 @@ export async function registerRoutes(
         ...input,
         createdById: req.user!.id
       });
+      await audit(req.user!.id, "CREATE_TRANSACTION", "coinTransaction", tx.id, {
+        userId: input.userId, amount: input.amount, type: input.type, reason: input.reason
+      });
       res.status(201).json(tx);
     } catch (err) {
-      if (err instanceof z.ZodError) return res.status(400).json(err);
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
+      throw err;
+    }
+  });
+
+  app.post(api.transactions.zeroOut.path, requireRole([ROLES.ADMIN, ROLES.ROP]), async (req, res) => {
+    try {
+      const { userId } = api.transactions.zeroOut.input.parse(req.body);
+      const currentBalance = await storage.getBalance(userId);
+
+      if (currentBalance === 0) {
+        return res.status(400).json({ message: "Баланс уже равен 0" });
+      }
+
+      const tx = await storage.createTransaction({
+        userId,
+        type: TRANSACTION_TYPES.ADJUST,
+        amount: -currentBalance,
+        reason: "Обнуление",
+        createdById: req.user!.id
+      });
+      await audit(req.user!.id, "ZERO_OUT", "coinTransaction", tx.id, {
+        userId, previousBalance: currentBalance
+      });
+      res.status(201).json(tx);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
       throw err;
     }
   });
 
   // === LESSONS ===
   app.get(api.lessons.list.path, requireAuth, async (req, res) => {
-    const lessons = await storage.listLessons();
-    res.json(lessons);
+    const allLessons = await storage.listLessons();
+    res.json(allLessons);
   });
 
   app.post(api.lessons.create.path, requireRole([ROLES.ADMIN]), async (req, res) => {
     try {
       const input = api.lessons.create.input.parse(req.body);
       const lesson = await storage.createLesson(input);
+      await audit(req.user!.id, "CREATE_LESSON", "lesson", lesson.id, { title: lesson.title });
       res.status(201).json(lesson);
     } catch (err) {
-      if (err instanceof z.ZodError) return res.status(400).json(err);
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
       throw err;
     }
   });
 
-  // === USERS & TEAMS ===
+  app.patch(api.lessons.update.path, requireRole([ROLES.ADMIN]), async (req, res) => {
+    try {
+      const input = api.lessons.update.input.parse(req.body);
+      const lesson = await storage.updateLesson(Number(req.params.id), input);
+      await audit(req.user!.id, "UPDATE_LESSON", "lesson", lesson.id, input);
+      res.json(lesson);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
+      throw err;
+    }
+  });
+
+  // === USERS ===
   app.get(api.users.list.path, requireRole([ROLES.ADMIN, ROLES.ROP]), async (req, res) => {
     const allUsers = await storage.listUsers();
-    // Filter for ROP: only their team
     if (req.user!.role === ROLES.ROP) {
       const teamUsers = allUsers.filter(u => u.teamId === req.user!.teamId);
       return res.json(teamUsers);
@@ -205,9 +250,86 @@ export async function registerRoutes(
     res.json(allUsers);
   });
 
+  app.post(api.users.create.path, requireRole([ROLES.ADMIN]), async (req, res) => {
+    try {
+      const input = api.users.create.input.parse(req.body);
+      const existing = await storage.getUserByUsername(input.username);
+      if (existing) {
+        return res.status(400).json({ message: "Пользователь с таким email уже существует" });
+      }
+
+      const hashedPassword = await hashPassword(input.password);
+      const user = await storage.createUser({
+        ...input,
+        password: hashedPassword,
+        isActive: input.isActive ?? true,
+        teamId: input.teamId ?? null,
+      });
+      await audit(req.user!.id, "CREATE_USER", "user", user.id, { name: user.name, role: user.role });
+      res.status(201).json(user);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
+      throw err;
+    }
+  });
+
+  app.patch(api.users.update.path, requireRole([ROLES.ADMIN]), async (req, res) => {
+    try {
+      const input = api.users.update.input.parse(req.body);
+      const updates: any = { ...input };
+
+      if (input.password) {
+        updates.password = await hashPassword(input.password);
+      }
+
+      const user = await storage.updateUser(Number(req.params.id), updates);
+      await audit(req.user!.id, "UPDATE_USER", "user", user.id, {
+        ...(input.role && { role: input.role }),
+        ...(input.teamId !== undefined && { teamId: input.teamId }),
+        ...(input.isActive !== undefined && { isActive: input.isActive }),
+        ...(input.name && { name: input.name }),
+      });
+      res.json(user);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
+      throw err;
+    }
+  });
+
+  // === TEAMS ===
   app.get(api.teams.list.path, requireAuth, async (req, res) => {
-    const teams = await storage.listTeams();
-    res.json(teams);
+    const allTeams = await storage.listTeams();
+    res.json(allTeams);
+  });
+
+  app.post(api.teams.create.path, requireRole([ROLES.ADMIN]), async (req, res) => {
+    try {
+      const input = api.teams.create.input.parse(req.body);
+      const team = await storage.createTeam(input);
+      await audit(req.user!.id, "CREATE_TEAM", "team", team.id, { name: team.name });
+      res.status(201).json(team);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
+      throw err;
+    }
+  });
+
+  app.patch(api.teams.update.path, requireRole([ROLES.ADMIN]), async (req, res) => {
+    try {
+      const input = api.teams.update.input.parse(req.body);
+      const team = await storage.updateTeam(Number(req.params.id), input);
+      await audit(req.user!.id, "UPDATE_TEAM", "team", team.id, input);
+      res.json(team);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
+      throw err;
+    }
+  });
+
+  // === AUDIT ===
+  app.get(api.audit.list.path, requireRole([ROLES.ADMIN]), async (req, res) => {
+    const logs = await storage.listAuditLogs();
+    res.json(logs);
   });
 
   // Seed data
@@ -222,10 +344,9 @@ async function seedDatabase() {
 
   console.log("Seeding database...");
 
-  // 1. Create Teams
   const teamA = await storage.createTeam({ name: "Sales A" });
-  
-  // 2. Create Users
+  const teamB = await storage.createTeam({ name: "Sales B" });
+
   const adminPwd = await hashPassword("admin123");
   await storage.createUser({
     username: "admin@example.com",
@@ -240,20 +361,17 @@ async function seedDatabase() {
   const rop = await storage.createUser({
     username: "rop@example.com",
     password: ropPwd,
-    name: "ROP Sales A",
+    name: "Alikhan ROP",
     role: ROLES.ROP,
     isActive: true,
     teamId: teamA.id
   });
 
-  // Update team with ROP
-  // storage.updateTeam... (not implemented but not critical for MVP logic if we just query by teamId)
-
   const mgrPwd = await hashPassword("manager123");
   const mgr1 = await storage.createUser({
     username: "manager1@example.com",
     password: mgrPwd,
-    name: "Ivan Manager",
+    name: "Ivan Petrov",
     role: ROLES.MANAGER,
     isActive: true,
     teamId: teamA.id
@@ -262,32 +380,66 @@ async function seedDatabase() {
   const mgr2 = await storage.createUser({
     username: "manager2@example.com",
     password: mgrPwd,
-    name: "Elena Manager",
+    name: "Elena Sidorova",
     role: ROLES.MANAGER,
     isActive: true,
     teamId: teamA.id
   });
 
-  // 3. Shop Items
   await storage.createShopItem({
     title: "AirPods Case",
-    description: "Premium leather case for AirPods.",
+    description: "Premium leather case for AirPods Pro.",
     priceCoins: 50,
     stock: 10,
     isActive: true,
     imageUrl: "https://placehold.co/400x400?text=AirPods+Case"
   });
-  
+
   await storage.createShopItem({
     title: "Company Hoodie",
-    description: "Warm hoodie with company logo.",
+    description: "Warm hoodie with company logo, sizes S-XL.",
     priceCoins: 120,
     stock: 5,
     isActive: true,
     imageUrl: "https://placehold.co/400x400?text=Hoodie"
   });
 
-  // 4. Lessons
+  await storage.createShopItem({
+    title: "Wireless Mouse",
+    description: "Ergonomic wireless mouse Logitech MX.",
+    priceCoins: 80,
+    stock: 8,
+    isActive: true,
+    imageUrl: "https://placehold.co/400x400?text=Mouse"
+  });
+
+  await storage.createShopItem({
+    title: "Bluetooth Speaker",
+    description: "Portable JBL speaker for the office.",
+    priceCoins: 200,
+    stock: 3,
+    isActive: true,
+    imageUrl: "https://placehold.co/400x400?text=Speaker"
+  });
+
+  await storage.createShopItem({
+    title: "Gift Card 5000 KZT",
+    description: "Kaspi gift card, 5000 tenge.",
+    priceCoins: 150,
+    stock: 20,
+    isActive: true,
+    imageUrl: "https://placehold.co/400x400?text=Gift+Card"
+  });
+
+  await storage.createShopItem({
+    title: "Day Off Voucher",
+    description: "Extra day off, approved by HR.",
+    priceCoins: 300,
+    stock: 2,
+    isActive: true,
+    imageUrl: "https://placehold.co/400x400?text=Day+Off"
+  });
+
   await storage.createLesson({
     course: "Sales Basics",
     title: "Introduction to Sales",
@@ -297,14 +449,39 @@ async function seedDatabase() {
     isActive: true
   });
 
-  // 5. Initial Coins
+  await storage.createLesson({
+    course: "Sales Basics",
+    title: "Client Communication",
+    contentType: "LINK",
+    content: "https://example.com/video2",
+    orderIndex: 2,
+    isActive: true
+  });
+
+  await storage.createLesson({
+    course: "Advanced Techniques",
+    title: "Closing Deals",
+    contentType: "LINK",
+    content: "https://example.com/video3",
+    orderIndex: 3,
+    isActive: true
+  });
+
   await storage.createTransaction({
     userId: mgr1.id,
     type: TRANSACTION_TYPES.EARN,
-    amount: 100,
+    amount: 200,
     reason: "Welcome Bonus",
     createdById: rop.id
   });
-  
+
+  await storage.createTransaction({
+    userId: mgr2.id,
+    type: TRANSACTION_TYPES.EARN,
+    amount: 150,
+    reason: "Welcome Bonus",
+    createdById: rop.id
+  });
+
   console.log("Database seeded successfully!");
 }

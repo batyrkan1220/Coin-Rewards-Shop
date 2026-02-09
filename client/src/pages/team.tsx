@@ -1,5 +1,5 @@
 import { useUsers } from "@/hooks/use-team";
-import { useCreateTransaction } from "@/hooks/use-transactions";
+import { useCreateTransaction, useZeroOut, useBalance } from "@/hooks/use-transactions";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -8,25 +8,37 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { User, ROLES } from "@shared/schema";
-import { Coins, AlertTriangle, Loader2 } from "lucide-react";
+import { Coins, AlertTriangle, Loader2, RotateCcw, ArrowUpRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { buildUrl } from "@shared/routes";
+import { api } from "@shared/routes";
 
 export default function TeamPage() {
   const { user: currentUser } = useAuth();
+  const [, setLocation] = useLocation();
   const { data: users, isLoading } = useUsers();
   const { mutate: createTransaction, isPending } = useCreateTransaction();
+  const { mutate: zeroOut, isPending: isZeroing } = useZeroOut();
   const { toast } = useToast();
 
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  useEffect(() => {
+    if (currentUser && currentUser.role !== ROLES.ADMIN && currentUser.role !== ROLES.ROP) {
+      setLocation("/");
+    }
+  }, [currentUser, setLocation]);
+
+  const [selectedUser, setSelectedUser] = useState<any>(null);
   const [actionType, setActionType] = useState<"EARN" | "ADJUST">("EARN");
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
+  const [showZeroConfirm, setShowZeroConfirm] = useState<any>(null);
 
-  // Only show users in my team if ROP, or all if Admin
-  const filteredUsers = users?.filter(u => {
+  const filteredUsers = users?.filter((u: any) => {
+    if (u.role === ROLES.ADMIN) return false;
     if (currentUser?.role === ROLES.ADMIN) return true;
     if (currentUser?.role === ROLES.ROP) return u.teamId === currentUser.teamId;
     return false;
@@ -34,12 +46,7 @@ export default function TeamPage() {
 
   const handleTransaction = () => {
     if (!selectedUser || !amount || !reason) return;
-    
-    // For "Zero out" (Adjust), amount is handled by backend logic or specific input?
-    // Spec says "Zero out" sets balance to 0. 
-    // Implementation: In this simple form, ADJUST is manual +/-. 
-    // Let's keep it simple: "ADJUST" allows negative values. "EARN" is positive only.
-    
+
     createTransaction({
       userId: selectedUser.id,
       amount: parseInt(amount),
@@ -47,10 +54,23 @@ export default function TeamPage() {
       reason
     }, {
       onSuccess: () => {
-        toast({ title: "Успешно", description: "Операция выполнена" });
+        toast({ title: "Операция выполнена" });
         setSelectedUser(null);
         setAmount("");
         setReason("");
+      },
+      onError: (err) => {
+        toast({ title: "Ошибка", description: err.message, variant: "destructive" });
+      }
+    });
+  };
+
+  const handleZeroOut = () => {
+    if (!showZeroConfirm) return;
+    zeroOut(showZeroConfirm.id, {
+      onSuccess: () => {
+        toast({ title: "Баланс обнулен" });
+        setShowZeroConfirm(null);
       },
       onError: (err) => {
         toast({ title: "Ошибка", description: err.message, variant: "destructive" });
@@ -63,49 +83,19 @@ export default function TeamPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-3xl font-display font-bold">Управление командой 👥</h2>
+        <h2 className="text-3xl font-bold" data-testid="text-team-title">Управление командой</h2>
         <p className="text-muted-foreground mt-1">Начисляйте монеты и управляйте сотрудниками</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredUsers?.map((user) => (
-          <Card key={user.id} className="hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center gap-4 pb-2">
-              <Avatar className="h-12 w-12 border border-border">
-                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`} />
-                <AvatarFallback>{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <CardTitle className="text-base truncate">{user.name}</CardTitle>
-                <p className="text-sm text-muted-foreground truncate">{user.role}</p>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-2 mt-2">
-                <Button 
-                  className="flex-1 bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary border-none shadow-none"
-                  variant="outline"
-                  onClick={() => {
-                    setSelectedUser(user);
-                    setActionType("EARN");
-                  }}
-                >
-                  <Coins className="w-4 h-4 mr-2" />
-                  Начислить
-                </Button>
-                <Button 
-                  className="bg-destructive/10 text-destructive hover:bg-destructive/20 hover:text-destructive border-none shadow-none"
-                  variant="outline"
-                  onClick={() => {
-                    setSelectedUser(user);
-                    setActionType("ADJUST");
-                  }}
-                >
-                  <AlertTriangle className="w-4 h-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+        {filteredUsers?.map((user: any) => (
+          <UserCard
+            key={user.id}
+            user={user}
+            onEarn={() => { setSelectedUser(user); setActionType("EARN"); }}
+            onAdjust={() => { setSelectedUser(user); setActionType("ADJUST"); }}
+            onZeroOut={() => setShowZeroConfirm(user)}
+          />
         ))}
       </div>
 
@@ -119,15 +109,15 @@ export default function TeamPage() {
               Пользователь: <span className="font-bold text-foreground">{selectedUser?.name}</span>
             </DialogDescription>
           </DialogHeader>
-
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Сумма</Label>
-              <Input 
-                type="number" 
-                placeholder={actionType === "EARN" ? "100" : "-50"} 
+              <Input
+                type="number"
+                placeholder={actionType === "EARN" ? "100" : "-50"}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
+                data-testid="input-tx-amount"
               />
               {actionType === "ADJUST" && (
                 <p className="text-xs text-muted-foreground">Используйте отрицательное значение для списания</p>
@@ -135,23 +125,94 @@ export default function TeamPage() {
             </div>
             <div className="space-y-2">
               <Label>Причина / Комментарий</Label>
-              <Textarea 
-                placeholder="За отличную работу над проектом..." 
+              <Textarea
+                placeholder="За отличную работу над проектом..."
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
+                data-testid="input-tx-reason"
               />
             </div>
           </div>
-
           <DialogFooter>
             <Button variant="outline" onClick={() => setSelectedUser(null)}>Отмена</Button>
-            <Button onClick={handleTransaction} disabled={isPending}>
+            <Button onClick={handleTransaction} disabled={isPending} data-testid="button-submit-tx">
               {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {actionType === "EARN" ? "Начислить" : "Применить"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!showZeroConfirm} onOpenChange={(open) => !open && setShowZeroConfirm(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Обнуление баланса</DialogTitle>
+            <DialogDescription>
+              Вы уверены, что хотите обнулить баланс пользователя <span className="font-bold text-foreground">{showZeroConfirm?.name}</span>?
+              Это создаст корректировочную транзакцию. История сохранится.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowZeroConfirm(null)}>Отмена</Button>
+            <Button variant="destructive" onClick={handleZeroOut} disabled={isZeroing} data-testid="button-confirm-zero">
+              {isZeroing && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Обнулить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+function UserCard({ user, onEarn, onAdjust, onZeroOut }: { user: any; onEarn: () => void; onAdjust: () => void; onZeroOut: () => void }) {
+  const { data: balance } = useBalance(user.id);
+
+  return (
+    <Card data-testid={`card-user-${user.id}`}>
+      <CardHeader className="flex flex-row items-center gap-4 pb-2">
+        <Avatar className="h-12 w-12 border border-border">
+          <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`} />
+          <AvatarFallback>{user.name?.substring(0, 2).toUpperCase()}</AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <CardTitle className="text-base truncate">{user.name}</CardTitle>
+          <p className="text-sm text-muted-foreground truncate">
+            {user.role === "MANAGER" ? "Менеджер" : user.role === "ROP" ? "РОП" : user.role}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-muted-foreground">Баланс</p>
+          <p className="text-lg font-bold">{balance ?? 0}</p>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="flex gap-2 mt-2 flex-wrap">
+          <Button
+            variant="outline"
+            className="flex-1"
+            onClick={onEarn}
+            data-testid={`button-earn-${user.id}`}
+          >
+            <ArrowUpRight className="w-4 h-4 mr-1" />
+            Начислить
+          </Button>
+          <Button
+            variant="outline"
+            onClick={onAdjust}
+            data-testid={`button-adjust-${user.id}`}
+          >
+            <AlertTriangle className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={onZeroOut}
+            data-testid={`button-zero-${user.id}`}
+          >
+            <RotateCcw className="w-4 h-4" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

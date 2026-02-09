@@ -74,7 +74,7 @@ export async function registerRoutes(
         name: input.name,
         subdomain: input.subdomain,
         planId: input.planId ?? null,
-        supportEmail: input.supportEmail ?? null,
+        supportEmail: null,
         isActive: true,
       });
 
@@ -192,7 +192,7 @@ export async function registerRoutes(
         name: input.companyName,
         subdomain: input.subdomain,
         planId: input.planId,
-        supportEmail: input.adminEmail,
+        supportEmail: null,
         isActive: true,
       });
 
@@ -239,6 +239,51 @@ export async function registerRoutes(
       const company = await storage.updateCompany(companyId, input);
       await audit(req.user!.id, "UPDATE_COMPANY_PROFILE", "company", company.id, input, companyId);
       res.json(company);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
+      throw err;
+    }
+  });
+
+  app.patch("/api/company/credentials", requireRole([ROLES.ADMIN]), async (req, res) => {
+    try {
+      const input = api.company.updateCredentials.input.parse(req.body);
+
+      if (!input.newEmail && !input.newPassword) {
+        return res.status(400).json({ message: "Укажите новый email или пароль" });
+      }
+
+      const currentUser = await storage.getUser(req.user!.id);
+      if (!currentUser) return res.status(404).json({ message: "Пользователь не найден" });
+
+      const { scrypt, timingSafeEqual } = await import("crypto");
+      const { promisify } = await import("util");
+      const scryptAsync = promisify(scrypt);
+      const [hashed, salt] = currentUser.password.split(".");
+      const hashedBuf = Buffer.from(hashed, "hex");
+      const suppliedBuf = (await scryptAsync(input.currentPassword, salt, 64)) as Buffer;
+      if (!timingSafeEqual(hashedBuf, suppliedBuf)) {
+        return res.status(400).json({ message: "Неверный текущий пароль" });
+      }
+
+      const updates: any = {};
+      if (input.newEmail) {
+        const existing = await storage.getUserByUsername(input.newEmail);
+        if (existing && existing.id !== req.user!.id) {
+          return res.status(400).json({ message: "Пользователь с таким email уже существует" });
+        }
+        updates.username = input.newEmail;
+      }
+      if (input.newPassword) {
+        updates.password = await hashPassword(input.newPassword);
+      }
+
+      const updated = await storage.updateUser(req.user!.id, updates);
+      await audit(req.user!.id, "UPDATE_CREDENTIALS", "user", updated.id, {
+        ...(input.newEmail && { emailChanged: true }),
+        ...(input.newPassword && { passwordChanged: true }),
+      }, getCompanyId(req));
+      res.json(sanitizeUser(updated));
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
       throw err;
@@ -822,7 +867,7 @@ async function seedDatabase() {
     subdomain: "demo",
     planId: basePlan.id,
     isActive: true,
-    supportEmail: "support@demo.com",
+    supportEmail: null,
   });
 
   const superAdminPwd = await hashPassword("superadmin123");

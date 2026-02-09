@@ -402,10 +402,23 @@ export const api = {
       path: "/api/company" as const,
       input: z.object({
         name: z.string().min(1).optional(),
-        supportEmail: z.string().email().nullable().optional(),
       }),
       responses: {
         200: z.custom<typeof companies.$inferSelect>(),
+        403: errorSchemas.unauthorized,
+      },
+    },
+    updateCredentials: {
+      method: "PATCH" as const,
+      path: "/api/company/credentials" as const,
+      input: z.object({
+        currentPassword: z.string().min(1),
+        newEmail: z.string().email().optional(),
+        newPassword: z.string().min(6).optional(),
+      }),
+      responses: {
+        200: z.custom<typeof users.$inferSelect>(),
+        400: errorSchemas.badRequest,
         403: errorSchemas.unauthorized,
       },
     },
@@ -452,7 +465,6 @@ export const api = {
           name: z.string().min(1),
           subdomain: z.string().min(1).regex(/^[a-z0-9-]+$/, "Только строчные латинские буквы, цифры и дефис"),
           planId: z.number().nullable().optional(),
-          supportEmail: z.string().email().nullable().optional(),
           adminUsername: z.string().min(1).optional(),
           adminPassword: z.string().min(3).optional(),
           adminName: z.string().min(1).optional(),
@@ -470,7 +482,6 @@ export const api = {
           subdomain: z.string().min(1).regex(/^[a-z0-9-]+$/).optional(),
           planId: z.number().nullable().optional(),
           isActive: z.boolean().optional(),
-          supportEmail: z.string().email().nullable().optional(),
         }),
         responses: {
           200: z.custom<typeof companies.$inferSelect>(),

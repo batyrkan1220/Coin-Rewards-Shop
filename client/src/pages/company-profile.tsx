@@ -9,14 +9,19 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Building2, Users, CreditCard, Globe, Mail, Calendar, Loader2, Save, Shield } from "lucide-react";
+import { Building2, Users, CreditCard, Globe, Calendar, Loader2, Save, Shield, KeyRound } from "lucide-react";
 import type { Company, SubscriptionPlan } from "@shared/schema";
 
 type CompanyWithDetails = Company & { plan: SubscriptionPlan | null; userCount: number };
 
 const updateCompanySchema = z.object({
   name: z.string().min(1, "Введите название компании"),
-  supportEmail: z.string().email("Некорректный email").nullable().optional(),
+});
+
+const changeCredentialsSchema = z.object({
+  newEmail: z.string().email("Некорректный email").optional().or(z.literal("")),
+  newPassword: z.string().min(6, "Минимум 6 символов").optional().or(z.literal("")),
+  currentPassword: z.string().min(1, "Введите текущий пароль"),
 });
 
 export default function CompanyProfilePage() {
@@ -40,16 +45,41 @@ export default function CompanyProfilePage() {
     },
   });
 
+  const credentialsMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof changeCredentialsSchema>) => {
+      const body: any = { currentPassword: data.currentPassword };
+      if (data.newEmail) body.newEmail = data.newEmail;
+      if (data.newPassword) body.newPassword = data.newPassword;
+      const res = await apiRequest("PATCH", "/api/company/credentials", body);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      credentialsForm.reset({ newEmail: "", newPassword: "", currentPassword: "" });
+      toast({ title: "Данные для входа обновлены" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Ошибка", description: error.message, variant: "destructive" });
+    },
+  });
+
   const form = useForm<z.infer<typeof updateCompanySchema>>({
     resolver: zodResolver(updateCompanySchema),
     defaultValues: {
       name: company?.name ?? "",
-      supportEmail: company?.supportEmail ?? "",
     },
     values: company ? {
       name: company.name,
-      supportEmail: company.supportEmail ?? "",
     } : undefined,
+  });
+
+  const credentialsForm = useForm<z.infer<typeof changeCredentialsSchema>>({
+    resolver: zodResolver(changeCredentialsSchema),
+    defaultValues: {
+      newEmail: "",
+      newPassword: "",
+      currentPassword: "",
+    },
   });
 
   if (isLoading) {
@@ -167,20 +197,6 @@ export default function CompanyProfilePage() {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="supportEmail"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email поддержки</FormLabel>
-                      <FormControl>
-                        <Input type="email" {...field} value={field.value ?? ""} className="bg-muted/30" data-testid="input-edit-support-email" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
                 <Button type="submit" disabled={updateMutation.isPending} data-testid="button-save-company">
                   {updateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                   Сохранить
@@ -193,57 +209,111 @@ export default function CompanyProfilePage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <Shield className="w-5 h-5" />
-              Информация
+              <KeyRound className="w-5 h-5" />
+              Данные для входа
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between py-2 border-b border-border/50">
-              <span className="text-sm text-muted-foreground flex items-center gap-2">
-                <Globe className="w-4 h-4" /> Субдомен
-              </span>
-              <Badge variant="secondary" data-testid="badge-subdomain">{company.subdomain}.rewards.kz</Badge>
-            </div>
+          <CardContent>
+            <Form {...credentialsForm}>
+              <form onSubmit={credentialsForm.handleSubmit((v) => credentialsMutation.mutate(v))} className="space-y-4">
+                <FormField
+                  control={credentialsForm.control}
+                  name="newEmail"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Новый email (логин)</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="Оставьте пустым, если не меняете" {...field} className="bg-muted/30" data-testid="input-new-email" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <div className="flex items-center justify-between py-2 border-b border-border/50">
-              <span className="text-sm text-muted-foreground flex items-center gap-2">
-                <CreditCard className="w-4 h-4" /> Тарифный план
-              </span>
-              <Badge variant="outline" data-testid="badge-plan">{company.plan?.name ?? "-"}</Badge>
-            </div>
+                <FormField
+                  control={credentialsForm.control}
+                  name="newPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Новый пароль</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="Оставьте пустым, если не меняете" {...field} className="bg-muted/30" data-testid="input-new-password" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <div className="flex items-center justify-between py-2 border-b border-border/50">
-              <span className="text-sm text-muted-foreground flex items-center gap-2">
-                <Users className="w-4 h-4" /> Лимит пользователей
-              </span>
-              <span className="text-sm font-medium" data-testid="text-user-limit">
-                {company.userCount} / {company.plan?.maxUsers ?? "---"}
-              </span>
-            </div>
+                <FormField
+                  control={credentialsForm.control}
+                  name="currentPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Текущий пароль</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="Для подтверждения изменений" {...field} className="bg-muted/30" data-testid="input-current-password" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <div className="flex items-center justify-between py-2 border-b border-border/50">
-              <span className="text-sm text-muted-foreground flex items-center gap-2">
-                <Mail className="w-4 h-4" /> Email поддержки
-              </span>
-              <span className="text-sm font-medium" data-testid="text-support-email">{company.supportEmail || "-"}</span>
-            </div>
-
-            <div className="flex items-center justify-between py-2">
-              <span className="text-sm text-muted-foreground flex items-center gap-2">
-                <Calendar className="w-4 h-4" /> Дата регистрации
-              </span>
-              <span className="text-sm font-medium" data-testid="text-created-at">{formatDate(company.createdAt)}</span>
-            </div>
-
-            <div className="flex items-center justify-between py-2">
-              <span className="text-sm text-muted-foreground">Статус</span>
-              <Badge variant={company.isActive ? "default" : "destructive"} data-testid="badge-status">
-                {company.isActive ? "Активна" : "Заблокирована"}
-              </Badge>
-            </div>
+                <Button type="submit" disabled={credentialsMutation.isPending} data-testid="button-save-credentials">
+                  {credentialsMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                  Обновить данные входа
+                </Button>
+              </form>
+            </Form>
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Shield className="w-5 h-5" />
+            Информация
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between py-2 border-b border-border/50">
+            <span className="text-sm text-muted-foreground flex items-center gap-2">
+              <Globe className="w-4 h-4" /> Субдомен
+            </span>
+            <Badge variant="secondary" data-testid="badge-subdomain">{company.subdomain}.rewards.kz</Badge>
+          </div>
+
+          <div className="flex items-center justify-between py-2 border-b border-border/50">
+            <span className="text-sm text-muted-foreground flex items-center gap-2">
+              <CreditCard className="w-4 h-4" /> Тарифный план
+            </span>
+            <Badge variant="outline" data-testid="badge-plan">{company.plan?.name ?? "-"}</Badge>
+          </div>
+
+          <div className="flex items-center justify-between py-2 border-b border-border/50">
+            <span className="text-sm text-muted-foreground flex items-center gap-2">
+              <Users className="w-4 h-4" /> Лимит пользователей
+            </span>
+            <span className="text-sm font-medium" data-testid="text-user-limit">
+              {company.userCount} / {company.plan?.maxUsers ?? "---"}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between py-2 border-b border-border/50">
+            <span className="text-sm text-muted-foreground flex items-center gap-2">
+              <Calendar className="w-4 h-4" /> Дата регистрации
+            </span>
+            <span className="text-sm font-medium" data-testid="text-created-at">{formatDate(company.createdAt)}</span>
+          </div>
+
+          <div className="flex items-center justify-between py-2">
+            <span className="text-sm text-muted-foreground">Статус</span>
+            <Badge variant={company.isActive ? "default" : "destructive"} data-testid="badge-status">
+              {company.isActive ? "Активна" : "Заблокирована"}
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

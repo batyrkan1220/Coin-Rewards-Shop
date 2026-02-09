@@ -132,7 +132,7 @@ function CompaniesTab() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<CompanyWithDetails | null>(null);
-  const [formData, setFormData] = useState({ name: "", subdomain: "", planId: "", supportEmail: "", adminUsername: "", adminPassword: "", adminName: "" });
+  const [formData, setFormData] = useState({ name: "", subdomain: "", planId: "", adminUsername: "", adminPassword: "", adminName: "" });
   const [credentialsDialog, setCredentialsDialog] = useState<{ open: boolean; companyName: string; username: string; password: string }>({ open: false, companyName: "", username: "", password: "" });
 
   const { data: companiesList, isLoading } = useQuery<CompanyWithDetails[]>({
@@ -185,7 +185,7 @@ function CompaniesTab() {
   });
 
   const resetForm = () => {
-    setFormData({ name: "", subdomain: "", planId: "", supportEmail: "", adminUsername: "", adminPassword: "", adminName: "" });
+    setFormData({ name: "", subdomain: "", planId: "", adminUsername: "", adminPassword: "", adminName: "" });
   };
 
   const openCreate = () => {
@@ -200,7 +200,6 @@ function CompaniesTab() {
       name: company.name,
       subdomain: company.subdomain,
       planId: company.planId ? String(company.planId) : "",
-      supportEmail: company.supportEmail || "",
       adminUsername: "",
       adminPassword: "",
       adminName: "",
@@ -216,7 +215,6 @@ function CompaniesTab() {
           name: formData.name,
           subdomain: formData.subdomain,
           planId: formData.planId ? Number(formData.planId) : null,
-          supportEmail: formData.supportEmail || null,
         },
       });
     } else {
@@ -224,7 +222,6 @@ function CompaniesTab() {
         name: formData.name,
         subdomain: formData.subdomain,
         planId: formData.planId ? Number(formData.planId) : null,
-        supportEmail: formData.supportEmail || null,
         adminUsername: formData.adminUsername || undefined,
         adminPassword: formData.adminPassword || undefined,
         adminName: formData.adminName || undefined,
@@ -269,7 +266,6 @@ function CompaniesTab() {
                         Админ: {company.adminUser.name} ({company.adminUser.username})
                       </p>
                     )}
-                    {company.supportEmail && <p className="text-xs text-muted-foreground">{company.supportEmail}</p>}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -349,16 +345,6 @@ function CompaniesTab() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Email поддержки</Label>
-              <Input
-                value={formData.supportEmail}
-                onChange={(e) => setFormData(p => ({ ...p, supportEmail: e.target.value }))}
-                placeholder="support@company.com"
-                data-testid="input-company-support-email"
-              />
-            </div>
-
             {!editingCompany && (
               <div className="space-y-4 border-t pt-4">
                 <p className="text-sm font-medium text-muted-foreground">Администратор компании (необязательно)</p>

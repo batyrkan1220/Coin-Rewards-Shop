@@ -1,0 +1,302 @@
+MVP Technical Specification (Replit) — Coins Rewards + Shop + Lessons
+
+Spec language: English
+Product UI language: Russian (all visible labels, buttons, messages)
+
+1) Goal
+
+Build a web platform where:
+	•	Sales managers earn coins (manually added by ROP/Admin in MVP).
+	•	Managers can spend coins in a Shop to redeem rewards.
+	•	The platform includes a Lessons section (training content).
+	•	Users have personal accounts with roles: Manager, ROP, Admin.
+	•	When a reward is redeemed, coins are deducted and the transaction history is preserved (ledger model).
+	•	“Zeroing” (обнуление) is implemented as an adjustment transaction, not deleting history.
+
+2) MVP Tech Stack (optimized for Replit)
+
+Backend: Node.js + Express
+Templating: EJS (server-rendered pages)
+DB: SQLite (file-based, easy for Replit)
+ORM: Prisma (preferred)
+Auth: Express session + bcrypt (cookie sessions)
+UI: Bootstrap via CDN (fast, no build step)
+Language: Russian UI text (labels, menu, buttons, errors)
+
+Notes: This MVP is monolithic (one repo, server-rendered). Easy to run with npm run dev.
+
+3) User Roles & Permissions (RBAC)
+
+3.1 Manager
+
+Can:
+	•	View own dashboard (coin balance, recent transactions).
+	•	Browse Shop items.
+	•	Create redemption request (redeem).
+	•	View own redemption history and statuses.
+	•	View Lessons list and open lesson pages.
+
+Cannot:
+	•	Add/deduct coins for others.
+	•	Approve redemptions.
+	•	Manage users/teams/catalog.
+
+3.2 ROP (Team Lead)
+
+Can:
+	•	View only their own team managers (team-scoped).
+	•	Add coins to a manager (earn transaction).
+	•	Deduct coins / “zero out” by creating adjustment transaction.
+	•	Approve/reject redemption requests for managers in their team.
+	•	Mark a redemption as “Issued” (optional in MVP; can be Admin-only).
+
+Cannot:
+	•	Manage global settings, other teams, or system users beyond their team.
+
+3.3 Admin (Superadmin)
+
+Can:
+	•	Full access to all teams/users.
+	•	Create/disable users.
+	•	Assign roles and teams.
+	•	Create/edit Shop items.
+	•	Create/edit Lessons.
+	•	View all transactions, redemptions, audit logs.
+	•	Override approvals and make adjustments.
+
+4) Core Modules
+	1.	Authentication & Sessions
+	2.	Users & Teams (RBAC)
+	3.	Coin Ledger (transactions) + Balance
+	4.	Shop + Redemptions workflow
+	5.	Lessons module
+	6.	Admin panel (CRUD)
+	7.	Audit logging (who changed what)
+
+5) Data Model (Prisma schema — required entities)
+
+5.1 Tables
+
+User
+	•	id (int, PK)
+	•	name (string)
+	•	email (string, unique) OR phone (string, unique) — pick one for MVP
+	•	passwordHash (string)
+	•	role (enum: MANAGER, ROP, ADMIN)
+	•	teamId (int, nullable for Admin)
+	•	isActive (boolean)
+	•	createdAt, updatedAt
+
+Team
+	•	id (int, PK)
+	•	name (string)
+	•	ropUserId (int, nullable) — link to User (role=ROP)
+
+CoinTransaction (ledger)
+	•	id (int, PK)
+	•	userId (int) — target manager
+	•	type (enum: EARN, SPEND, ADJUST)
+	•	amount (int) — positive or negative allowed; in UI show sign based on type
+	•	reason (string) — e.g., “Сделка #A-1029” / “Магазин: AirPods Case” / “Обнуление”
+	•	refType (string, nullable) — “sale”, “redeem”, “manual”, etc.
+	•	refId (int, nullable) — link to Sale or Redemption id (optional)
+	•	createdById (int) — actor (ROP/Admin/System)
+	•	createdAt
+
+Rule: Never delete transactions. Balance is computed from sum(amount).
+
+ShopItem
+	•	id (int, PK)
+	•	title (string) — Russian text
+	•	description (string)
+	•	priceCoins (int)
+	•	stock (int, nullable) — optional in MVP
+	•	isActive (boolean)
+	•	imageUrl (string, nullable)
+	•	createdAt, updatedAt
+
+Redemption
+	•	id (int, PK)
+	•	userId (int)
+	•	shopItemId (int)
+	•	priceCoinsSnapshot (int) — store price at redemption time
+	•	status (enum: PENDING, APPROVED, REJECTED, ISSUED)
+	•	comment (string, nullable) — manager note
+	•	approvedById (int, nullable)
+	•	approvedAt (datetime, nullable)
+	•	issuedById (int, nullable)
+	•	issuedAt (datetime, nullable)
+	•	createdAt
+
+Rule: When a redemption is APPROVED:
+	•	Create CoinTransaction of type SPEND with amount = -priceCoinsSnapshot
+	•	Update status
+
+Lesson
+	•	id (int, PK)
+	•	course (string) — e.g., “База продаж”
+	•	title (string)
+	•	contentType (enum: LINK, TEXT) — MVP can use LINK only
+	•	content (string) — URL to video/pdf or text body
+	•	orderIndex (int)
+	•	isActive (boolean)
+	•	createdAt, updatedAt
+
+AuditLog (MVP optional but recommended)
+	•	id
+	•	actorId
+	•	action (string) — “CREATE_TX”, “APPROVE_REDEEM”, etc.
+	•	entity (string)
+	•	entityId (int)
+	•	details (string/json)
+	•	createdAt
+
+6) Business Logic Rules
+
+6.1 Coin Balance
+
+Balance(user) = SUM(CoinTransaction.amount WHERE userId = user.id)
+
+6.2 “Zero out / Обнулить”
+
+Not a reset/delete. Implement as:
+	•	Create ADJUST transaction with amount = -currentBalance
+	•	reason = “Обнуление”
+	•	createdById = Admin/ROP
+
+6.3 Redemption Flow
+	1.	Manager submits redemption:
+
+	•	Create Redemption(status=PENDING, priceCoinsSnapshot=current ShopItem.priceCoins)
+
+	2.	Approval:
+
+	•	Only ROP (team-scoped) or Admin can approve
+	•	Check manager balance >= priceCoinsSnapshot
+	•	On approve:
+	•	create SPEND transaction amount = -priceCoinsSnapshot
+	•	set status=APPROVED, approvedById, approvedAt
+
+	3.	Issued:
+
+	•	Admin (or ROP if allowed) sets status=ISSUED
+
+6.4 Team Scope
+	•	ROP can only view/manage users where user.teamId == rop.teamId
+	•	ROP cannot edit shop catalog or lessons (Admin only)
+
+7) UI Pages (Russian text)
+
+All navigation and UI copy MUST be in Russian.
+
+7.1 Public
+	•	/login — “Вход”
+	•	/logout
+
+7.2 Manager
+	•	/ Dashboard: “Баланс”, “Последние операции”, “Мои заявки”
+	•	/shop Shop: “Магазин”, “Получить”
+	•	/shop/:id item detail (optional)
+	•	/redemptions “Мои заявки”
+	•	/lessons “Сабақтар/Уроки” (use Russian label “Уроки”)
+	•	/lessons/:id
+
+7.3 ROP
+	•	/rop/team “Команда”
+	•	/rop/coins “Начисление/Коррекция”
+	•	/rop/redemptions “Заявки на выдачу” (approve/reject)
+	•	Optional: /rop/reports “Отчёты”
+
+7.4 Admin
+	•	/admin/users CRUD users
+	•	/admin/teams CRUD teams
+	•	/admin/shop CRUD shop items
+	•	/admin/lessons CRUD lessons
+	•	/admin/transactions view all transactions
+	•	/admin/audit view audit log (optional)
+
+8) API Endpoints (optional)
+
+MVP can be fully server-rendered without a separate API.
+If endpoints are used, keep them internal:
+	•	POST /auth/login
+	•	POST /shop/:id/redeem
+	•	POST /rop/coins/add
+	•	POST /rop/coins/adjust
+	•	POST /rop/redemptions/:id/approve
+	•	POST /rop/redemptions/:id/reject
+	•	POST /admin/... CRUD routes
+
+9) Access Control Implementation
+
+Middleware:
+	•	requireAuth
+	•	requireRole('ADMIN')
+	•	requireRole('ROP')
+	•	requireRoleAny(['ADMIN','ROP'])
+	•	requireTeamScope(targetUserId) for ROP actions
+
+10) Seed Data (required for quick demo)
+
+Create seed script:
+	•	Admin: admin@example.com / password: admin123
+	•	ROP: rop@example.com / password: rop123 (team “Sales A”)
+	•	2 Managers in team “Sales A”
+	•	6 Shop items
+	•	3 Lessons in 2 courses
+	•	A few CoinTransactions for demo
+
+11) Replit Setup Instructions (must be included in README)
+
+11.1 Scripts
+	•	npm install
+	•	npx prisma migrate dev
+	•	npx prisma db seed
+	•	npm run dev
+
+11.2 Environment Variables
+	•	SESSION_SECRET=...
+	•	DATABASE_URL="file:./dev.db"
+
+12) Non-Functional Requirements
+	•	Responsive UI (Bootstrap).
+	•	No transaction deletion.
+	•	Basic input validation (required fields, numeric amounts).
+	•	Error messages in Russian.
+	•	Audit log for sensitive actions (coins and approvals).
+
+13) Acceptance Criteria (must pass)
+	1.	Admin can log in and create users, teams, items, lessons.
+	2.	Manager sees own balance and history.
+	3.	ROP can add coins to a manager in their team.
+	4.	Manager can request a reward (PENDING).
+	5.	ROP/Admin can approve request, and coins are deducted with SPEND transaction.
+	6.	“Zero out” creates ADJUST transaction and balance becomes 0, history remains.
+	7.	Manager can open Lessons pages.
+
+⸻
+
+14) Russian UI Copy (minimum strings)
+
+Menu:
+	•	“Дашборд”
+	•	“Уроки”
+	•	“Магазин”
+	•	“Мои заявки”
+	•	“Команда” (ROP)
+	•	“Админ” (Admin)
+Buttons:
+	•	“Войти”
+	•	“Выйти”
+	•	“Начислить”
+	•	“Списать”
+	•	“Обнулить”
+	•	“Получить”
+	•	“Подтвердить”
+	•	“Отклонить”
+	•	“Выдано”
+Status:
+	•	“Ожидает”
+	•	“Подтверждено”
+	•	“Отклонено”
+	•	“Выдано”

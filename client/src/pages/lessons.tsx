@@ -16,11 +16,11 @@ export default function LessonsPage() {
   }
 
   // Group by course
-  const groupedLessons = lessons?.reduce((acc, lesson) => {
+  const groupedLessons = lessons?.reduce((acc: Record<string, any[]>, lesson: any) => {
     if (!acc[lesson.course]) acc[lesson.course] = [];
     acc[lesson.course].push(lesson);
     return acc;
-  }, {} as Record<string, typeof lessons>);
+  }, {} as Record<string, any[]>);
 
   return (
     <div className="space-y-8">
@@ -39,7 +39,7 @@ export default function LessonsPage() {
               {course}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {courseLessons.map((lesson) => (
+              {courseLessons.map((lesson: any) => (
                 <Card key={lesson.id} className="hover:border-primary/50 transition-colors group">
                   <CardHeader>
                     <CardTitle className="leading-snug text-lg group-hover:text-primary transition-colors">

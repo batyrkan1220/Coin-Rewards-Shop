@@ -75,7 +75,7 @@ export async function registerRoutes(
     if (scope === "all" && user.role !== ROLES.ADMIN) {
       return res.status(403).json({ message: "Доступ запрещён" });
     }
-    if (scope === "team" && ![ROLES.ADMIN, ROLES.ROP].includes(user.role)) {
+    if (scope === "team" && ![ROLES.ADMIN, ROLES.ROP].includes(user.role as any)) {
       return res.status(403).json({ message: "Доступ запрещён" });
     }
 

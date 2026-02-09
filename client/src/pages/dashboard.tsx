@@ -17,8 +17,8 @@ export default function Dashboard() {
   const { data: balance } = useBalance(user?.id);
 
   // Calculate stats
-  const totalEarned = transactions?.filter(t => t.type === 'EARN').reduce((sum, t) => sum + t.amount, 0) || 0;
-  const totalSpent = transactions?.filter(t => t.type === 'SPEND').reduce((sum, t) => sum + Math.abs(t.amount), 0) || 0;
+  const totalEarned = transactions?.filter((t: any) => t.type === 'EARN' && t.status === 'APPROVED').reduce((sum: number, t: any) => sum + t.amount, 0) || 0;
+  const totalSpent = transactions?.filter((t: any) => t.type === 'SPEND' && t.status === 'APPROVED').reduce((sum: number, t: any) => sum + Math.abs(t.amount), 0) || 0;
 
   return (
     <div className="space-y-8">
@@ -87,7 +87,7 @@ export default function Dashboard() {
                 <div className="text-center py-10 text-muted-foreground">Нет операций</div>
               ) : (
                 <div className="space-y-4">
-                  {transactions?.map((t) => (
+                  {transactions?.map((t: any) => (
                     <div key={t.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors border border-transparent hover:border-border">
                       <div className="flex items-center gap-3">
                         <div className={`p-2 rounded-full ${t.type === 'EARN' ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>
@@ -95,12 +95,16 @@ export default function Dashboard() {
                         </div>
                         <div>
                           <p className="font-medium text-sm">{t.reason}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {format(new Date(t.createdAt!), "d MMM yyyy, HH:mm", { locale: ru })}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(t.createdAt!), "d MMM yyyy, HH:mm", { locale: ru })}
+                            </p>
+                            {t.status === 'PENDING' && <Badge variant="outline" className="text-[10px] h-4 px-1.5">Ожидает</Badge>}
+                            {t.status === 'REJECTED' && <Badge variant="destructive" className="text-[10px] h-4 px-1.5">Отклонено</Badge>}
+                          </div>
                         </div>
                       </div>
-                      <span className={`font-bold font-mono ${t.type === 'EARN' ? 'text-success' : 'text-destructive'}`}>
+                      <span className={`font-bold font-mono ${t.status === 'PENDING' ? 'text-muted-foreground' : t.type === 'EARN' ? 'text-success' : 'text-destructive'}`}>
                         {t.type === 'EARN' ? '+' : ''}{t.amount}
                       </span>
                     </div>

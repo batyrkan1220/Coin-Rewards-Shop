@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { useState } from "react";
 import { ROLES } from "@shared/schema";
 
@@ -110,6 +110,7 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="p-0 w-72">
+              <SheetTitle className="sr-only">Меню навигации</SheetTitle>
               <NavContent />
             </SheetContent>
           </Sheet>

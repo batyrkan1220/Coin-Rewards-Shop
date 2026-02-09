@@ -14,8 +14,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@shared/routes";
 import { ROLES } from "@shared/schema";
-import { Loader2, User, Lock, Coins, UsersRound } from "lucide-react";
+import { Loader2, User, Lock, Coins, UsersRound, Palette, Check } from "lucide-react";
 import { useState } from "react";
+import { getAvatarUrl, AVATAR_STYLES, SEEDS } from "@/lib/avatars";
 
 const nameSchema = z.object({
   name: z.string().min(1, "Обязательное поле"),
@@ -39,6 +40,8 @@ export default function ProfilePage() {
   const { data: balance } = useBalance(user?.id);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
+  const [activeStyleTab, setActiveStyleTab] = useState(0);
 
   const team = teams?.find((t: any) => t.id === user?.teamId);
 
@@ -101,7 +104,46 @@ export default function ProfilePage() {
     },
   });
 
+  const updateAvatarMutation = useMutation({
+    mutationFn: async (avatarStyle: string) => {
+      const res = await fetch(api.profile.update.path, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ avatarStyle }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Ошибка обновления аватара");
+      }
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.auth.me.path] });
+      setSelectedStyle(null);
+      toast({ title: "Аватар обновлен" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Ошибка", description: error.message, variant: "destructive" });
+    },
+  });
+
   const roleName = user?.role === ROLES.ADMIN ? "Администратор" : user?.role === ROLES.ROP ? "РОП" : "Менеджер";
+
+  const currentAvatarUrl = user ? getAvatarUrl(user.username, (user as any).avatarStyle, user.gender) : "";
+
+  const currentStyleInfo = AVATAR_STYLES[activeStyleTab];
+  const currentStyleAvatars = SEEDS.map((seed) => {
+    const id = `${currentStyleInfo.style}:${seed}`;
+    const avatarSeed = `${user?.username || "user"}-${seed}`;
+    return {
+      id,
+      url: `https://api.dicebear.com/7.x/${currentStyleInfo.style}/svg?seed=${encodeURIComponent(avatarSeed)}&size=80`,
+    };
+  });
+
+  const previewStyle = selectedStyle || (user as any)?.avatarStyle;
+  const previewUrl = user ? getAvatarUrl(user.username, previewStyle, user.gender) : "";
 
   return (
     <div className="space-y-6">
@@ -115,10 +157,7 @@ export default function ProfilePage() {
           <CardContent className="pt-6">
             <div className="flex flex-col items-center gap-4">
               <Avatar className="h-20 w-20 border-2 border-border">
-                <AvatarImage src={user?.gender === "female"
-                  ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}&top=longHairStraight,longHairBob,longHairCurly,longHairMiaWallace&accessories=prescription01,prescription02,round&facialHair=blank`
-                  : `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}&top=shortHairShortFlat,shortHairShortWaved,shortHairShortCurly,shortHairDreads01&facialHair=beardLight,beardMedium,moustacheFancy,blank`
-                } />
+                <AvatarImage src={currentAvatarUrl} data-testid="img-profile-avatar" />
                 <AvatarFallback className="text-2xl">{user?.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div className="text-center">
@@ -128,7 +167,7 @@ export default function ProfilePage() {
               </div>
 
               <div className="w-full space-y-3 mt-4">
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
                   <div className="flex items-center gap-2">
                     <Coins className="w-4 h-4 text-muted-foreground" />
                     <span className="text-sm text-muted-foreground">Баланс</span>
@@ -136,7 +175,7 @@ export default function ProfilePage() {
                   <span className="font-bold" data-testid="text-profile-balance">{balance ?? 0}</span>
                 </div>
                 {team && (
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
                     <div className="flex items-center gap-2">
                       <UsersRound className="w-4 h-4 text-muted-foreground" />
                       <span className="text-sm text-muted-foreground">Команда</span>
@@ -150,6 +189,89 @@ export default function ProfilePage() {
         </Card>
 
         <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Palette className="w-5 h-5 text-muted-foreground" />
+                <CardTitle className="text-lg">Выбор аватара</CardTitle>
+              </div>
+              <CardDescription>Выберите стиль и аватар из коллекции</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {selectedStyle && (
+                  <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-md">
+                    <Avatar className="h-14 w-14 border-2 border-primary">
+                      <AvatarImage src={previewUrl} />
+                      <AvatarFallback>{user?.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Новый аватар выбран</p>
+                      <p className="text-xs text-muted-foreground">Нажмите "Сохранить" для применения</p>
+                    </div>
+                    <Button
+                      onClick={() => updateAvatarMutation.mutate(selectedStyle)}
+                      disabled={updateAvatarMutation.isPending}
+                      data-testid="button-save-avatar"
+                    >
+                      {updateAvatarMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Сохранить
+                    </Button>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-1">
+                  {AVATAR_STYLES.map((s, idx) => (
+                    <Button
+                      key={s.style}
+                      variant={activeStyleTab === idx ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setActiveStyleTab(idx)}
+                      data-testid={`button-style-${s.style}`}
+                    >
+                      {s.label}
+                    </Button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
+                  {currentStyleAvatars.map((avatar) => {
+                    const isCurrentAvatar = (user as any)?.avatarStyle === avatar.id;
+                    const isSelected = selectedStyle === avatar.id;
+                    return (
+                      <button
+                        key={avatar.id}
+                        onClick={() => setSelectedStyle(avatar.id)}
+                        className={`
+                          relative p-1 rounded-md transition-all duration-150
+                          ${isSelected ? "ring-2 ring-primary bg-primary/10" : isCurrentAvatar ? "ring-2 ring-muted-foreground/50 bg-muted" : "hover-elevate"}
+                        `}
+                        data-testid={`button-avatar-${avatar.id}`}
+                      >
+                        <img
+                          src={avatar.url}
+                          alt={currentStyleInfo.label}
+                          className="w-full aspect-square rounded-md"
+                          loading="lazy"
+                        />
+                        {isCurrentAvatar && !isSelected && (
+                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-muted-foreground rounded-full flex items-center justify-center">
+                            <Check className="w-3 h-3 text-background" />
+                          </div>
+                        )}
+                        {isSelected && (
+                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center">
+                            <Check className="w-3 h-3 text-primary-foreground" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">

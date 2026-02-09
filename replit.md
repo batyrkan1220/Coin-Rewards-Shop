@@ -92,9 +92,14 @@ client/src/
 
 ## Gender & Avatars
 - Users select gender (male/female) during registration
-- Avatars use DiceBear avataaars API with gender-specific styling
+- Default avatars use DiceBear avataaars API with gender-specific styling
 - Male avatars: short hair styles, optional facial hair
 - Female avatars: long hair styles, no facial hair, optional accessories
+- Users can choose custom avatars from 16 DiceBear styles on the profile page
+- Avatar styles include: adventurer, avataaars, big-ears, lorelei, notionists, personas, micah, miniavs, croodles, etc.
+- Each style offers 8 seed variations for different looks
+- Selected avatar stored in user.avatarStyle field (format: "style:seed")
+- Shared helper: client/src/lib/avatars.ts (getAvatarUrl, AVATAR_STYLES)
 
 ## Profile Page
 - Users can change their display name

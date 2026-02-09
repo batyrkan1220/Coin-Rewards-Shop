@@ -18,6 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { useState } from "react";
 import { ROLES } from "@shared/schema";
+import { getAvatarUrl } from "@/lib/avatars";
 
 export default function LayoutShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -75,10 +76,7 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
       <div className="mt-auto p-6 border-t border-border/50">
         <Link href="/profile" className="flex items-center gap-3 mb-4 p-2 rounded-xl transition-all duration-200 hover:bg-muted cursor-pointer" onClick={() => setIsMobileMenuOpen(false)} data-testid="link-profile">
           <Avatar className="h-10 w-10 border border-border">
-            <AvatarImage src={user?.gender === "female"
-              ? `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}&top=longHairStraight,longHairBob,longHairCurly,longHairMiaWallace&accessories=prescription01,prescription02,round&facialHair=blank`
-              : `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}&top=shortHairShortFlat,shortHairShortWaved,shortHairShortCurly,shortHairDreads01&facialHair=beardLight,beardMedium,moustacheFancy,blank`
-            } />
+            <AvatarImage src={user ? getAvatarUrl(user.username, (user as any).avatarStyle, user.gender) : ""} />
             <AvatarFallback>{user?.username?.substring(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">

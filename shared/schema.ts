@@ -17,6 +17,12 @@ export const TRANSACTION_TYPES = {
   ADJUST: "ADJUST",
 } as const;
 
+export const TRANSACTION_STATUS = {
+  PENDING: "PENDING",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+} as const;
+
 export const REDEMPTION_STATUS = {
   PENDING: "PENDING",
   APPROVED: "APPROVED",
@@ -66,6 +72,7 @@ export const coinTransactions = pgTable("coin_transactions", {
   type: text("type").notNull(), // EARN, SPEND, ADJUST
   amount: integer("amount").notNull(),
   reason: text("reason").notNull(),
+  status: text("status").notNull().default(TRANSACTION_STATUS.APPROVED),
   refType: text("ref_type"), // 'redemption', 'manual', etc.
   refId: integer("ref_id"),
   createdById: integer("created_by_id").references(() => users.id),

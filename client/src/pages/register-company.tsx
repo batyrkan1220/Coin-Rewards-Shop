@@ -19,7 +19,6 @@ import type { SubscriptionPlan } from "@shared/schema";
 
 const registerCompanySchema = z.object({
   companyName: z.string().min(1, "Введите название компании"),
-  subdomain: z.string().min(1, "Введите субдомен").regex(/^[a-z0-9-]+$/, "Только строчные латинские буквы, цифры и дефис"),
   planId: z.number({ required_error: "Выберите тариф" }),
   adminEmail: z.string().email("Некорректный email"),
   adminPassword: z.string().min(6, "Минимум 6 символов"),
@@ -61,7 +60,6 @@ export default function RegisterCompanyPage() {
     resolver: zodResolver(registerCompanySchema),
     defaultValues: {
       companyName: "",
-      subdomain: "",
       adminEmail: "",
       adminPassword: "",
       adminName: "",
@@ -105,25 +103,6 @@ export default function RegisterCompanyPage() {
                         <FormLabel>Название компании</FormLabel>
                         <FormControl>
                           <Input placeholder="ООО Рога и Копыта" {...field} className="h-11 bg-muted/30" data-testid="input-company-name" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="subdomain"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Субдомен</FormLabel>
-                        <FormControl>
-                          <div className="flex items-center gap-2">
-                            <Input placeholder="my-company" {...field} className="h-11 bg-muted/30" data-testid="input-subdomain"
-                              onChange={(e) => field.onChange(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                            />
-                            <span className="text-sm text-muted-foreground whitespace-nowrap">.rewards.kz</span>
-                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>

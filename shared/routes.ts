@@ -428,7 +428,6 @@ export const api = {
     path: "/api/register-company" as const,
     input: z.object({
       companyName: z.string().min(1),
-      subdomain: z.string().min(1).regex(/^[a-z0-9-]+$/, "Только строчные латинские буквы, цифры и дефис"),
       planId: z.number(),
       adminEmail: z.string().email("Некорректный email"),
       adminPassword: z.string().min(6, "Минимум 6 символов"),
@@ -463,7 +462,6 @@ export const api = {
         path: "/api/super/companies" as const,
         input: z.object({
           name: z.string().min(1),
-          subdomain: z.string().min(1).regex(/^[a-z0-9-]+$/, "Только строчные латинские буквы, цифры и дефис"),
           planId: z.number().nullable().optional(),
           adminUsername: z.string().min(1).optional(),
           adminPassword: z.string().min(3).optional(),
@@ -479,7 +477,6 @@ export const api = {
         path: "/api/super/companies/:id" as const,
         input: z.object({
           name: z.string().min(1).optional(),
-          subdomain: z.string().min(1).regex(/^[a-z0-9-]+$/).optional(),
           planId: z.number().nullable().optional(),
           isActive: z.boolean().optional(),
         }),

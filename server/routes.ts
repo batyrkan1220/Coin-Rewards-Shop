@@ -66,13 +66,10 @@ export async function registerRoutes(
   app.post(api.superAdmin.companies.create.path, requireSuperAdmin, async (req, res) => {
     try {
       const input = api.superAdmin.companies.create.input.parse(req.body);
-      const existing = await storage.getCompanyBySubdomain(input.subdomain);
-      if (existing) {
-        return res.status(400).json({ message: "Субдомен уже занят" });
-      }
+      const slug = input.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `company-${Date.now()}`;
       const company = await storage.createCompany({
         name: input.name,
-        subdomain: input.subdomain,
+        subdomain: slug + "-" + Date.now(),
         planId: input.planId ?? null,
         supportEmail: null,
         isActive: true,
@@ -97,7 +94,7 @@ export async function registerRoutes(
         adminCredentials = { username: input.adminUsername, password: input.adminPassword, name: input.adminName };
       }
 
-      await audit(req.user!.id, "CREATE_COMPANY", "company", company.id, { name: company.name, subdomain: company.subdomain });
+      await audit(req.user!.id, "CREATE_COMPANY", "company", company.id, { name: company.name });
       res.status(201).json({ company, adminCredentials });
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
@@ -108,12 +105,6 @@ export async function registerRoutes(
   app.patch(api.superAdmin.companies.update.path, requireSuperAdmin, async (req, res) => {
     try {
       const input = api.superAdmin.companies.update.input.parse(req.body);
-      if (input.subdomain) {
-        const existing = await storage.getCompanyBySubdomain(input.subdomain);
-        if (existing && existing.id !== Number(req.params.id)) {
-          return res.status(400).json({ message: "Субдомен уже занят" });
-        }
-      }
       const company = await storage.updateCompany(Number(req.params.id), input);
       await audit(req.user!.id, "UPDATE_COMPANY", "company", company.id, input);
       res.json(company);
@@ -213,11 +204,6 @@ export async function registerRoutes(
     try {
       const input = api.registerCompany.input.parse(req.body);
 
-      const existingSubdomain = await storage.getCompanyBySubdomain(input.subdomain);
-      if (existingSubdomain) {
-        return res.status(400).json({ message: "Субдомен уже занят" });
-      }
-
       const existingUser = await storage.getUserByUsername(input.adminEmail);
       if (existingUser) {
         return res.status(400).json({ message: "Пользователь с таким email уже существует" });
@@ -228,9 +214,10 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Выбранный тарифный план недоступен" });
       }
 
+      const slug = input.companyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `company-${Date.now()}`;
       const company = await storage.createCompany({
         name: input.companyName,
-        subdomain: input.subdomain,
+        subdomain: slug + "-" + Date.now(),
         planId: input.planId,
         supportEmail: null,
         isActive: true,

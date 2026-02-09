@@ -9,7 +9,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Building2, Users, CreditCard, Globe, Calendar, Loader2, Save, Shield, KeyRound } from "lucide-react";
+import { Building2, Users, CreditCard, Calendar, Loader2, Save, Shield, KeyRound } from "lucide-react";
 import type { Company, SubscriptionPlan } from "@shared/schema";
 
 type CompanyWithDetails = Company & { plan: SubscriptionPlan | null; userCount: number };
@@ -157,19 +157,6 @@ export default function CompanyProfilePage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                <Globe className="w-5 h-5 text-purple-500" />
-              </div>
-              <div>
-                <p className="text-lg font-bold" data-testid="text-subdomain">{company.subdomain}</p>
-                <p className="text-sm text-muted-foreground">.rewards.kz</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -276,13 +263,6 @@ export default function CompanyProfilePage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between py-2 border-b border-border/50">
-            <span className="text-sm text-muted-foreground flex items-center gap-2">
-              <Globe className="w-4 h-4" /> Субдомен
-            </span>
-            <Badge variant="secondary" data-testid="badge-subdomain">{company.subdomain}.rewards.kz</Badge>
-          </div>
-
           <div className="flex items-center justify-between py-2 border-b border-border/50">
             <span className="text-sm text-muted-foreground flex items-center gap-2">
               <CreditCard className="w-4 h-4" /> Тарифный план

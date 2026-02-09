@@ -108,7 +108,6 @@ function StatsTab() {
                     <Building2 className="w-5 h-5 text-muted-foreground flex-shrink-0" />
                     <div className="min-w-0">
                       <p className="font-medium truncate">{c.name}</p>
-                      <p className="text-xs text-muted-foreground">{c.subdomain}.platform.com</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -132,7 +131,7 @@ function CompaniesTab() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<CompanyWithDetails | null>(null);
-  const [formData, setFormData] = useState({ name: "", subdomain: "", planId: "", adminUsername: "", adminPassword: "", adminName: "" });
+  const [formData, setFormData] = useState({ name: "", planId: "", adminUsername: "", adminPassword: "", adminName: "" });
   const [credentialsDialog, setCredentialsDialog] = useState<{ open: boolean; companyName: string; username: string; password: string }>({ open: false, companyName: "", username: "", password: "" });
   const [adminCredDialog, setAdminCredDialog] = useState<{ open: boolean; company: CompanyWithDetails | null; newEmail: string; newPassword: string }>({ open: false, company: null, newEmail: "", newPassword: "" });
 
@@ -201,7 +200,7 @@ function CompaniesTab() {
   });
 
   const resetForm = () => {
-    setFormData({ name: "", subdomain: "", planId: "", adminUsername: "", adminPassword: "", adminName: "" });
+    setFormData({ name: "", planId: "", adminUsername: "", adminPassword: "", adminName: "" });
   };
 
   const openCreate = () => {
@@ -214,7 +213,6 @@ function CompaniesTab() {
     setEditingCompany(company);
     setFormData({
       name: company.name,
-      subdomain: company.subdomain,
       planId: company.planId ? String(company.planId) : "",
       adminUsername: "",
       adminPassword: "",
@@ -229,14 +227,12 @@ function CompaniesTab() {
         id: editingCompany.id,
         data: {
           name: formData.name,
-          subdomain: formData.subdomain,
           planId: formData.planId ? Number(formData.planId) : null,
         },
       });
     } else {
       createMutation.mutate({
         name: formData.name,
-        subdomain: formData.subdomain,
         planId: formData.planId ? Number(formData.planId) : null,
         adminUsername: formData.adminUsername || undefined,
         adminPassword: formData.adminPassword || undefined,
@@ -275,7 +271,6 @@ function CompaniesTab() {
                   <Building2 className="w-6 h-6 text-muted-foreground flex-shrink-0" />
                   <div className="min-w-0">
                     <p className="font-medium truncate" data-testid={`text-company-name-${company.id}`}>{company.name}</p>
-                    <p className="text-sm text-muted-foreground">{company.subdomain}.platform.com</p>
                     {company.adminUser && (
                       <p className="text-xs text-muted-foreground" data-testid={`text-admin-login-${company.id}`}>
                         <KeyRound className="w-3 h-3 inline mr-1" />
@@ -347,18 +342,6 @@ function CompaniesTab() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Субдомен</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  value={formData.subdomain}
-                  onChange={(e) => setFormData(p => ({ ...p, subdomain: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") }))}
-                  placeholder="company-name"
-                  data-testid="input-company-subdomain"
-                />
-                <span className="text-sm text-muted-foreground whitespace-nowrap">.platform.com</span>
-              </div>
-            </div>
-            <div className="space-y-2">
               <Label>Тариф</Label>
               <Select value={formData.planId} onValueChange={(v) => setFormData(p => ({ ...p, planId: v }))}>
                 <SelectTrigger data-testid="select-company-plan">
@@ -408,7 +391,7 @@ function CompaniesTab() {
             <Button
               onClick={handleSubmit}
               className="w-full"
-              disabled={createMutation.isPending || updateMutation.isPending || !formData.name || !formData.subdomain}
+              disabled={createMutation.isPending || updateMutation.isPending || !formData.name}
               data-testid="button-submit-company"
             >
               {(createMutation.isPending || updateMutation.isPending) ? "Сохранение..." : editingCompany ? "Сохранить" : "Создать"}

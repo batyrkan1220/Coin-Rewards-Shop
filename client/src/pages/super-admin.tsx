@@ -10,8 +10,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, CreditCard, Users, Plus, Pencil, BarChart3, Globe } from "lucide-react";
+import { Building2, CreditCard, Users, Plus, Pencil, BarChart3, Globe, Copy, KeyRound } from "lucide-react";
 import type { Company, SubscriptionPlan } from "@shared/schema";
+
+type CompanyWithDetails = Company & { plan: SubscriptionPlan | null; userCount: number; adminUser: { id: number; username: string; name: string } | null };
 
 type Tab = "stats" | "companies" | "plans";
 
@@ -53,7 +55,7 @@ function StatsTab() {
     queryKey: ["/api/super/stats"],
   });
 
-  const { data: companiesList } = useQuery<(Company & { plan: SubscriptionPlan | null; userCount: number })[]>({
+  const { data: companiesList } = useQuery<CompanyWithDetails[]>({
     queryKey: ["/api/super/companies"],
   });
 
@@ -129,10 +131,11 @@ function StatsTab() {
 function CompaniesTab() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingCompany, setEditingCompany] = useState<(Company & { plan: SubscriptionPlan | null; userCount: number }) | null>(null);
+  const [editingCompany, setEditingCompany] = useState<CompanyWithDetails | null>(null);
   const [formData, setFormData] = useState({ name: "", subdomain: "", planId: "", supportEmail: "", adminUsername: "", adminPassword: "", adminName: "" });
+  const [credentialsDialog, setCredentialsDialog] = useState<{ open: boolean; companyName: string; username: string; password: string }>({ open: false, companyName: "", username: "", password: "" });
 
-  const { data: companiesList, isLoading } = useQuery<(Company & { plan: SubscriptionPlan | null; userCount: number })[]>({
+  const { data: companiesList, isLoading } = useQuery<CompanyWithDetails[]>({
     queryKey: ["/api/super/companies"],
   });
 
@@ -141,13 +144,25 @@ function CompaniesTab() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/super/companies", data),
-    onSuccess: () => {
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/super/companies", data);
+      return await res.json() as { company: Company; adminCredentials: { username: string; password: string; name: string } | null };
+    },
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/super/companies"] });
       queryClient.invalidateQueries({ queryKey: ["/api/super/stats"] });
       setDialogOpen(false);
       resetForm();
-      toast({ title: "Компания создана" });
+      if (result.adminCredentials) {
+        setCredentialsDialog({
+          open: true,
+          companyName: result.company.name,
+          username: result.adminCredentials.username,
+          password: result.adminCredentials.password,
+        });
+      } else {
+        toast({ title: "Компания создана" });
+      }
     },
     onError: (err: any) => {
       toast({ title: "Ошибка", description: err.message, variant: "destructive" });
@@ -179,7 +194,7 @@ function CompaniesTab() {
     setDialogOpen(true);
   };
 
-  const openEdit = (company: Company & { plan: SubscriptionPlan | null; userCount: number }) => {
+  const openEdit = (company: CompanyWithDetails) => {
     setEditingCompany(company);
     setFormData({
       name: company.name,
@@ -217,7 +232,7 @@ function CompaniesTab() {
     }
   };
 
-  const toggleActive = (company: Company & { plan: SubscriptionPlan | null; userCount: number }) => {
+  const toggleActive = (company: CompanyWithDetails) => {
     updateMutation.mutate({
       id: company.id,
       data: { isActive: !company.isActive },
@@ -248,6 +263,12 @@ function CompaniesTab() {
                   <div className="min-w-0">
                     <p className="font-medium truncate" data-testid={`text-company-name-${company.id}`}>{company.name}</p>
                     <p className="text-sm text-muted-foreground">{company.subdomain}.platform.com</p>
+                    {company.adminUser && (
+                      <p className="text-xs text-muted-foreground" data-testid={`text-admin-login-${company.id}`}>
+                        <KeyRound className="w-3 h-3 inline mr-1" />
+                        Админ: {company.adminUser.name} ({company.adminUser.username})
+                      </p>
+                    )}
                     {company.supportEmail && <p className="text-xs text-muted-foreground">{company.supportEmail}</p>}
                   </div>
                 </div>
@@ -380,6 +401,47 @@ function CompaniesTab() {
             >
               {(createMutation.isPending || updateMutation.isPending) ? "Сохранение..." : editingCompany ? "Сохранить" : "Создать"}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={credentialsDialog.open} onOpenChange={(open) => { if (!open) setCredentialsDialog({ open: false, companyName: "", username: "", password: "" }); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Компания создана</DialogTitle>
+            <DialogDescription>
+              Данные для входа администратора компании "{credentialsDialog.companyName}". Сохраните пароль - он не будет показан повторно.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-muted-foreground text-xs">Логин</Label>
+              <div className="flex items-center gap-2">
+                <Input readOnly value={credentialsDialog.username} data-testid="text-credentials-login" />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => { navigator.clipboard.writeText(credentialsDialog.username); toast({ title: "Логин скопирован" }); }}
+                  data-testid="button-copy-login"
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-muted-foreground text-xs">Пароль</Label>
+              <div className="flex items-center gap-2">
+                <Input readOnly value={credentialsDialog.password} data-testid="text-credentials-password" />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => { navigator.clipboard.writeText(credentialsDialog.password); toast({ title: "Пароль скопирован" }); }}
+                  data-testid="button-copy-password"
+                >
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

@@ -56,7 +56,7 @@ export interface IStorage {
   deactivateInviteToken(id: number): Promise<InviteToken>;
 
   // Company management (Super Admin)
-  listCompanies(): Promise<(Company & { plan: SubscriptionPlan | null; userCount: number })[]>;
+  listCompanies(): Promise<(Company & { plan: SubscriptionPlan | null; userCount: number; adminUser: { id: number; username: string; name: string } | null })[]>;
   getCompany(id: number): Promise<Company | undefined>;
   getCompanyBySubdomain(subdomain: string): Promise<Company | undefined>;
   createCompany(company: InsertCompany): Promise<Company>;
@@ -378,14 +378,19 @@ export class DatabaseStorage implements IStorage {
 
   // === COMPANY MANAGEMENT ===
 
-  async listCompanies(): Promise<(Company & { plan: SubscriptionPlan | null; userCount: number })[]> {
+  async listCompanies(): Promise<(Company & { plan: SubscriptionPlan | null; userCount: number; adminUser: { id: number; username: string; name: string } | null })[]> {
     const allCompanies = await db.query.companies.findMany({
       with: { plan: true },
       orderBy: desc(companies.createdAt),
     });
     const enriched = await Promise.all(allCompanies.map(async (c) => {
       const count = await this.getUserCountByCompany(c.id);
-      return { ...c, userCount: count };
+      const [adminUser] = await db.select({
+        id: users.id,
+        username: users.username,
+        name: users.name,
+      }).from(users).where(and(eq(users.companyId, c.id), eq(users.role, "ADMIN"))).limit(1);
+      return { ...c, userCount: count, adminUser: adminUser || null };
     }));
     return enriched;
   }

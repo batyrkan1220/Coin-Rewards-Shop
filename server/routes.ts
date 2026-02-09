@@ -78,6 +78,7 @@ export async function registerRoutes(
         isActive: true,
       });
 
+      let adminCredentials: { username: string; password: string; name: string } | null = null;
       if (input.adminUsername && input.adminPassword && input.adminName) {
         const existingUser = await storage.getUserByUsername(input.adminUsername);
         if (existingUser) {
@@ -93,10 +94,11 @@ export async function registerRoutes(
           isActive: true,
           teamId: null,
         });
+        adminCredentials = { username: input.adminUsername, password: input.adminPassword, name: input.adminName };
       }
 
       await audit(req.user!.id, "CREATE_COMPANY", "company", company.id, { name: company.name, subdomain: company.subdomain });
-      res.status(201).json(company);
+      res.status(201).json({ company, adminCredentials });
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
       throw err;

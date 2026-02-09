@@ -400,7 +400,7 @@ export async function registerRoutes(
   app.post(api.invites.create.path, requireRole([ROLES.ADMIN]), async (req, res) => {
     try {
       const { teamId, usageLimit } = api.invites.create.input.parse(req.body);
-      const token = randomBytes(24).toString("hex");
+      const token = randomBytes(6).toString("base64url").slice(0, 8);
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       const invite = await storage.createInviteToken({
         token,

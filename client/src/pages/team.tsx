@@ -1,5 +1,5 @@
 import { useUsers } from "@/hooks/use-team";
-import { useCreateTransaction, useZeroOut, useBalance } from "@/hooks/use-transactions";
+import { useCreateTransaction, useZeroOut, useBalance, usePendingTransactions, useUpdateTransactionStatus } from "@/hooks/use-transactions";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { User, ROLES } from "@shared/schema";
-import { Coins, AlertTriangle, Loader2, RotateCcw, ArrowUpRight, Search, Filter } from "lucide-react";
+import { Coins, AlertTriangle, Loader2, RotateCcw, ArrowUpRight, Search, Filter, CheckCircle, XCircle, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { buildUrl } from "@shared/routes";
 import { api } from "@shared/routes";
@@ -151,6 +151,8 @@ export default function TeamPage() {
         </CardContent>
       </Card>
 
+      {currentUser?.role === ROLES.ADMIN && <PendingApprovalsSection users={users} />}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredUsers?.map((user: any) => (
           <UserCard
@@ -229,6 +231,90 @@ export default function TeamPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function PendingApprovalsSection({ users }: { users: any[] | undefined }) {
+  const { data: pending, isLoading } = usePendingTransactions();
+  const { mutate: updateStatus, isPending } = useUpdateTransactionStatus();
+  const { toast } = useToast();
+
+  const getUserName = (userId: number) => {
+    const user = users?.find((u: any) => u.id === userId);
+    return user?.name || `ID ${userId}`;
+  };
+
+  const getCreatorName = (createdById: number | null) => {
+    if (!createdById) return "Система";
+    const user = users?.find((u: any) => u.id === createdById);
+    return user?.name || `ID ${createdById}`;
+  };
+
+  const handleAction = (id: number, status: "APPROVED" | "REJECTED") => {
+    updateStatus({ id, status }, {
+      onSuccess: () => {
+        toast({ title: status === "APPROVED" ? "Транзакция одобрена" : "Транзакция отклонена" });
+      },
+      onError: (err) => {
+        toast({ title: "Ошибка", description: err.message, variant: "destructive" });
+      }
+    });
+  };
+
+  if (isLoading) return null;
+  if (!pending || pending.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center gap-3 pb-3">
+        <Clock className="w-5 h-5 text-amber-500" />
+        <CardTitle className="text-lg">Ожидают подтверждения</CardTitle>
+        <Badge variant="secondary">{pending.length}</Badge>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {pending.map((tx: any) => (
+            <div key={tx.id} className="flex items-center justify-between gap-4 p-3 rounded-lg border border-border" data-testid={`pending-tx-${tx.id}`}>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium">{getUserName(tx.userId)}</span>
+                  <Badge variant="outline">
+                    {tx.type === "EARN" ? "Начисление" : tx.type === "ADJUST" ? "Коррекция" : tx.type}
+                  </Badge>
+                  <span className="font-bold text-lg">{tx.amount > 0 ? "+" : ""}{tx.amount}</span>
+                  <Coins className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {tx.reason} &middot; от {getCreatorName(tx.createdById)}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handleAction(tx.id, "APPROVED")}
+                  disabled={isPending}
+                  data-testid={`button-approve-tx-${tx.id}`}
+                  className="text-green-600 border-green-200"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handleAction(tx.id, "REJECTED")}
+                  disabled={isPending}
+                  data-testid={`button-reject-tx-${tx.id}`}
+                  className="text-destructive border-destructive/20"
+                >
+                  <XCircle className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

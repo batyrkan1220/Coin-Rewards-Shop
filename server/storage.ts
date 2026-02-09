@@ -5,9 +5,9 @@ import {
   type ShopItem, type InsertShopItem, type CoinTransaction, type InsertTransaction,
   type Redemption, type InsertRedemption, type Lesson, type InsertLesson,
   type AuditLog,
-  REDEMPTION_STATUS
+  REDEMPTION_STATUS, TRANSACTION_STATUS
 } from "@shared/schema";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
@@ -27,8 +27,11 @@ export interface IStorage {
   updateShopItem(id: number, updates: Partial<InsertShopItem>): Promise<ShopItem>;
 
   createTransaction(tx: InsertTransaction): Promise<CoinTransaction>;
+  getTransaction(id: number): Promise<CoinTransaction | undefined>;
+  updateTransactionStatus(id: number, status: string): Promise<CoinTransaction>;
   getTransactionsByUser(userId: number): Promise<CoinTransaction[]>;
   getAllTransactions(): Promise<CoinTransaction[]>;
+  getPendingTransactions(): Promise<CoinTransaction[]>;
   getBalance(userId: number): Promise<number>;
 
   createRedemption(redemption: InsertRedemption): Promise<Redemption>;
@@ -114,6 +117,16 @@ export class DatabaseStorage implements IStorage {
     return transaction;
   }
 
+  async getTransaction(id: number): Promise<CoinTransaction | undefined> {
+    const [tx] = await db.select().from(coinTransactions).where(eq(coinTransactions.id, id));
+    return tx;
+  }
+
+  async updateTransactionStatus(id: number, status: string): Promise<CoinTransaction> {
+    const [tx] = await db.update(coinTransactions).set({ status }).where(eq(coinTransactions.id, id)).returning();
+    return tx;
+  }
+
   async getTransactionsByUser(userId: number): Promise<CoinTransaction[]> {
     return await db.select()
       .from(coinTransactions)
@@ -127,13 +140,23 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(coinTransactions.createdAt));
   }
 
+  async getPendingTransactions(): Promise<CoinTransaction[]> {
+    return await db.select()
+      .from(coinTransactions)
+      .where(eq(coinTransactions.status, TRANSACTION_STATUS.PENDING))
+      .orderBy(desc(coinTransactions.createdAt));
+  }
+
   async getBalance(userId: number): Promise<number> {
     const result = await db
       .select({
         balance: sql<number>`coalesce(sum(${coinTransactions.amount}), 0)`
       })
       .from(coinTransactions)
-      .where(eq(coinTransactions.userId, userId));
+      .where(and(
+        eq(coinTransactions.userId, userId),
+        eq(coinTransactions.status, TRANSACTION_STATUS.APPROVED)
+      ));
     return Number(result[0].balance);
   }
 

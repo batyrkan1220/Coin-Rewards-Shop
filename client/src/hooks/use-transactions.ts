@@ -88,3 +88,40 @@ export function useZeroOut() {
     },
   });
 }
+
+export function usePendingTransactions() {
+  return useQuery({
+    queryKey: [api.transactions.pending.path],
+    queryFn: async () => {
+      const res = await fetch(api.transactions.pending.path);
+      if (!res.ok) throw new Error("Failed to load pending transactions");
+      return await res.json();
+    },
+  });
+}
+
+export function useUpdateTransactionStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: "APPROVED" | "REJECTED" }) => {
+      const url = buildUrl(api.transactions.updateStatus.path, { id });
+      const res = await fetch(url, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Ошибка обновления статуса");
+      }
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.transactions.pending.path] });
+      queryClient.invalidateQueries({ queryKey: [api.transactions.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.transactions.listAll.path] });
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === "balance" });
+      queryClient.invalidateQueries({ queryKey: [api.users.list.path] });
+    },
+  });
+}

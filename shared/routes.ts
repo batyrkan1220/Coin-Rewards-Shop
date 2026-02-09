@@ -169,6 +169,23 @@ export const api = {
         403: errorSchemas.unauthorized,
       },
     },
+    pending: {
+      method: "GET" as const,
+      path: "/api/transactions/pending" as const,
+      responses: {
+        200: z.array(z.custom<typeof coinTransactions.$inferSelect>()),
+      },
+    },
+    updateStatus: {
+      method: "PATCH" as const,
+      path: "/api/transactions/:id/status" as const,
+      input: z.object({
+        status: z.enum(["APPROVED", "REJECTED"]),
+      }),
+      responses: {
+        200: z.custom<typeof coinTransactions.$inferSelect>(),
+      },
+    },
     balance: {
       method: "GET" as const,
       path: "/api/balance/:userId" as const,

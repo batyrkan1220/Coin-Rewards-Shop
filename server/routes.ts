@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, hashPassword } from "./auth";
 import { api } from "@shared/routes";
-import { ROLES, REDEMPTION_STATUS, TRANSACTION_TYPES } from "@shared/schema";
+import { ROLES, REDEMPTION_STATUS, TRANSACTION_TYPES, TRANSACTION_STATUS } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(
@@ -181,12 +181,15 @@ export async function registerRoutes(
   app.post(api.transactions.create.path, requireRole([ROLES.ADMIN, ROLES.ROP]), async (req, res) => {
     try {
       const input = api.transactions.create.input.parse(req.body);
+      const isAdmin = req.user!.role === ROLES.ADMIN;
+      const status = isAdmin ? TRANSACTION_STATUS.APPROVED : TRANSACTION_STATUS.PENDING;
       const tx = await storage.createTransaction({
         ...input,
+        status,
         createdById: req.user!.id
       });
       await audit(req.user!.id, "CREATE_TRANSACTION", "coinTransaction", tx.id, {
-        userId: input.userId, amount: input.amount, type: input.type, reason: input.reason
+        userId: input.userId, amount: input.amount, type: input.type, reason: input.reason, status
       });
       res.status(201).json(tx);
     } catch (err) {
@@ -204,17 +207,45 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Баланс уже равен 0" });
       }
 
+      const isAdmin = req.user!.role === ROLES.ADMIN;
+      const txStatus = isAdmin ? TRANSACTION_STATUS.APPROVED : TRANSACTION_STATUS.PENDING;
       const tx = await storage.createTransaction({
         userId,
         type: TRANSACTION_TYPES.ADJUST,
         amount: -currentBalance,
         reason: "Обнуление",
+        status: txStatus,
         createdById: req.user!.id
       });
       await audit(req.user!.id, "ZERO_OUT", "coinTransaction", tx.id, {
         userId, previousBalance: currentBalance
       });
       res.status(201).json(tx);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
+      throw err;
+    }
+  });
+
+  app.get(api.transactions.pending.path, requireRole([ROLES.ADMIN]), async (req, res) => {
+    const pending = await storage.getPendingTransactions();
+    res.json(pending);
+  });
+
+  app.patch(api.transactions.updateStatus.path, requireRole([ROLES.ADMIN]), async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const { status } = api.transactions.updateStatus.input.parse(req.body);
+      const tx = await storage.getTransaction(id);
+      if (!tx) return res.status(404).json({ message: "Транзакция не найдена" });
+      if (tx.status !== TRANSACTION_STATUS.PENDING) {
+        return res.status(400).json({ message: "Можно изменить статус только ожидающих транзакций" });
+      }
+      const updated = await storage.updateTransactionStatus(id, status);
+      await audit(req.user!.id, status === TRANSACTION_STATUS.APPROVED ? "APPROVE_TRANSACTION" : "REJECT_TRANSACTION", "coinTransaction", id, {
+        userId: tx.userId, amount: tx.amount, type: tx.type
+      });
+      res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
       throw err;

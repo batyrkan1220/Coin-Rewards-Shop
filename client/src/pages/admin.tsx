@@ -22,7 +22,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Pencil, Check, X, Package, Users, BookOpen, ShoppingBag, List, Shield, ArrowUpRight, ArrowDownLeft, Trash2, Video, FileText, Link as LinkIcon } from "lucide-react";
+import { Loader2, Plus, Pencil, Check, X, Package, Users, BookOpen, ShoppingBag, List, Shield, ArrowUpRight, ArrowDownLeft, Trash2, Video, FileText, Link as LinkIcon, ImageOff } from "lucide-react";
+import { ImageCropUploader } from "@/components/image-crop-uploader";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 
@@ -533,8 +534,14 @@ function ShopTab() {
               </div>
               <FormField control={form.control} name="imageUrl" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Ссылка на изображение</FormLabel>
-                  <FormControl><Input {...field} placeholder="https://..." data-testid="input-item-image" /></FormControl>
+                  <FormLabel>Изображение товара</FormLabel>
+                  <div className="flex items-center gap-2">
+                    <FormControl><Input {...field} placeholder="Ссылка или загрузите файл" data-testid="input-item-image" className="flex-1" /></FormControl>
+                    <ImageCropUploader
+                      onImageUploaded={(url) => form.setValue("imageUrl", url)}
+                      currentImageUrl={field.value}
+                    />
+                  </div>
                   <FormMessage />
                   {field.value && field.value.trim() !== "" && (
                     <div className="mt-2 relative aspect-square w-32 rounded-md overflow-hidden border border-border bg-muted" data-testid="img-item-preview-create">
@@ -583,8 +590,14 @@ function ShopTab() {
               </div>
               <FormField control={editForm.control} name="imageUrl" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Ссылка на изображение</FormLabel>
-                  <FormControl><Input {...field} placeholder="https://..." /></FormControl>
+                  <FormLabel>Изображение товара</FormLabel>
+                  <div className="flex items-center gap-2">
+                    <FormControl><Input {...field} placeholder="Ссылка или загрузите файл" className="flex-1" /></FormControl>
+                    <ImageCropUploader
+                      onImageUploaded={(url) => editForm.setValue("imageUrl", url)}
+                      currentImageUrl={field.value}
+                    />
+                  </div>
                   <FormMessage />
                   {field.value && field.value.trim() !== "" && (
                     <div className="mt-2 relative aspect-square w-32 rounded-md overflow-hidden border border-border bg-muted" data-testid="img-item-preview-edit">

@@ -69,7 +69,16 @@ client/src/
 - **ARTICLE**: Full text content displayed within the platform
 - **LINK**: External link with iframe preview and fallback external link button
 
+## Image Upload
+- Shop items support image upload with 1:1 crop via Replit Object Storage
+- Upload flow: file select -> react-easy-crop 1:1 -> canvas resize 600x600 -> presigned URL upload to GCS
+- Upload endpoint: POST /api/uploads/request-url (auth required)
+- Uploaded images served via: GET /objects/uploads/<uuid>
+- Component: client/src/components/image-crop-uploader.tsx
+- Object storage integration: server/replit_integrations/object_storage/
+
 ## Recent Changes
+- 2026-02-09: Added image upload with 1:1 crop to admin shop form (create and edit), using Replit Object Storage + react-easy-crop
 - 2026-02-09: Added VIDEO/ARTICLE/LINK content types for lessons, embedded YouTube player, article viewer, lesson detail page within platform, admin CRUD for lessons with delete, content type selector in admin
 - 2026-02-09: Transaction approval workflow, balance filters by APPROVED status, dashboard stats filter APPROVED only
 - 2026-02-09: Fixed storage.ts class structure bug, added full Admin CRUD routes, expanded admin page to 7 tabs, added zero-out functionality, added audit log viewing

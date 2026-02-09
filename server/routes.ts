@@ -5,12 +5,14 @@ import { setupAuth, hashPassword } from "./auth";
 import { api } from "@shared/routes";
 import { ROLES, REDEMPTION_STATUS, TRANSACTION_TYPES, TRANSACTION_STATUS } from "@shared/schema";
 import { z } from "zod";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   setupAuth(app);
+  registerObjectStorageRoutes(app);
 
   const requireAuth = (req: any, res: any, next: any) => {
     if (req.isAuthenticated()) return next();

@@ -376,6 +376,7 @@ export const api = {
         name: z.string().min(1).optional(),
         currentPassword: z.string().optional(),
         newPassword: z.string().min(3).optional(),
+        avatarStyle: z.string().optional(),
       }),
       responses: {
         200: z.custom<typeof users.$inferSelect>(),

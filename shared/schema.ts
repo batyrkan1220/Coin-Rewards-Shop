@@ -53,6 +53,7 @@ export const users = pgTable("users", {
   role: text("role").notNull().default(ROLES.MANAGER),
   name: text("name").notNull(),
   gender: text("gender"),
+  avatarStyle: text("avatar_style"),
   teamId: integer("team_id").references(() => teams.id),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),

@@ -504,6 +504,10 @@ export async function registerRoutes(
         updates.name = input.name;
       }
 
+      if (input.avatarStyle !== undefined) {
+        updates.avatarStyle = input.avatarStyle;
+      }
+
       if (input.newPassword) {
         if (!input.currentPassword) {
           return res.status(400).json({ message: "Введите текущий пароль" });

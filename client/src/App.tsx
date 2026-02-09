@@ -1,16 +1,70 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useAuth } from "@/hooks/use-auth";
+import { Loader2 } from "lucide-react";
+
 import NotFound from "@/pages/not-found";
+import AuthPage from "@/pages/auth";
+import Dashboard from "@/pages/dashboard";
+import LayoutShell from "@/components/layout-shell";
+import ShopPage from "@/pages/shop";
+import LessonsPage from "@/pages/lessons";
+import TeamPage from "@/pages/team";
+import RequestsPage from "@/pages/requests";
+import AdminPage from "@/pages/admin";
+
+function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
+  const { user, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    setLocation("/auth");
+    return null;
+  }
+
+  return (
+    <LayoutShell>
+      <Component />
+    </LayoutShell>
+  );
+}
 
 function Router() {
   return (
     <Switch>
-      {/* Add pages below */}
-      {/* <Route path="/" component={Home}/> */}
-      {/* Fallback to 404 */}
+      <Route path="/auth" component={AuthPage} />
+      
+      {/* Protected Routes */}
+      <Route path="/">
+        <ProtectedRoute component={Dashboard} />
+      </Route>
+      <Route path="/shop">
+        <ProtectedRoute component={ShopPage} />
+      </Route>
+      <Route path="/lessons">
+        <ProtectedRoute component={LessonsPage} />
+      </Route>
+      <Route path="/team">
+        <ProtectedRoute component={TeamPage} />
+      </Route>
+      <Route path="/requests">
+        <ProtectedRoute component={RequestsPage} />
+      </Route>
+      <Route path="/admin">
+        <ProtectedRoute component={AdminPage} />
+      </Route>
+
       <Route component={NotFound} />
     </Switch>
   );

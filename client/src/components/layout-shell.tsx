@@ -55,7 +55,7 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
             <Coins className="w-6 h-6 text-primary" />
           </div>
-          <span className="font-display font-bold text-xl tracking-tight">Rewards</span>
+          <span className="font-display font-bold text-xl tracking-tight">tabys</span>
         </div>
         
         <div className="space-y-1">
@@ -109,7 +109,7 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
         <header className="lg:hidden h-16 border-b border-border bg-card flex items-center justify-between px-4 sticky top-0 z-30">
           <div className="flex items-center gap-2">
             <Coins className="w-6 h-6 text-primary" />
-            <span className="font-display font-bold text-lg">Rewards</span>
+            <span className="font-display font-bold text-lg">tabys</span>
           </div>
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild>

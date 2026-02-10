@@ -87,7 +87,7 @@ export default function RegisterCompanyPage() {
         <Card className="border-border/50 shadow-2xl shadow-black/5">
           <CardHeader className="text-center pb-2">
             <CardTitle className="text-2xl font-display font-bold" data-testid="text-register-title">Регистрация компании</CardTitle>
-            <CardDescription>Создайте аккаунт для вашей компании на платформе Rewards</CardDescription>
+            <CardDescription>Создайте аккаунт для вашей компании на платформе tabys</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>

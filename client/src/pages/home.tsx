@@ -21,7 +21,7 @@ export default function HomePage() {
             <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
               <Coins className="w-5 h-5 text-primary" />
             </div>
-            <span className="font-display font-bold text-xl tracking-tight">Rewards</span>
+            <span className="font-display font-bold text-xl tracking-tight">tabys</span>
           </div>
           <div className="flex items-center gap-2">
             {user ? (
@@ -133,7 +133,7 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
             <Coins className="w-4 h-4" />
-            <span>Rewards Platform</span>
+            <span>tabys</span>
           </div>
           <p className="text-sm text-muted-foreground">
             Корпоративная система мотивации и обучения

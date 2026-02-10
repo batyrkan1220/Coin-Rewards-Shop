@@ -6,7 +6,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Coins, Loader2, Eye, EyeOff } from "lucide-react";
+import { Coins, Loader2, Eye, EyeOff, MessageCircle, AlertTriangle } from "lucide-react";
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
 
@@ -15,8 +15,11 @@ const loginSchema = z.object({
   password: z.string().min(1, "Введите пароль"),
 });
 
+const WHATSAPP_PHONE = "+77770145874";
+const WHATSAPP_LINK = `https://wa.me/${WHATSAPP_PHONE.replace(/\+/g, "")}`;
+
 export default function AuthPage() {
-  const { login, isLoggingIn, loginError, user } = useAuth();
+  const { login, isLoggingIn, loginError, user, companyDeactivated } = useAuth();
   const [, setLocation] = useLocation();
   const [showPassword, setShowPassword] = useState(false);
 
@@ -44,6 +47,38 @@ export default function AuthPage() {
             <Coins className="w-12 h-12 text-primary" />
           </div>
         </div>
+
+        {companyDeactivated && (
+          <Card className="mb-6 border-destructive/50 bg-destructive/5" data-testid="card-company-deactivated">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-6 h-6 text-destructive shrink-0 mt-0.5" />
+                <div className="space-y-3">
+                  <div>
+                    <h3 className="font-display font-bold text-foreground mb-1">Доступ приостановлен</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      Срок действия тарифного плана вашей компании истек. Для продления доступа свяжитесь с технической поддержкой.
+                    </p>
+                  </div>
+                  <a
+                    href={WHATSAPP_LINK}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-testid="link-whatsapp-support"
+                  >
+                    <Button variant="default" className="w-full gap-2">
+                      <MessageCircle className="w-4 h-4" />
+                      Написать в WhatsApp
+                    </Button>
+                  </a>
+                  <p className="text-xs text-muted-foreground text-center">
+                    +7 777 014 58 74
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         
         <Card className="border-border/50 shadow-2xl shadow-black/5">
           <CardHeader className="text-center pb-2">
@@ -99,9 +134,11 @@ export default function AuthPage() {
                   )}
                 />
                 
-                {loginError && (
+                {loginError && !companyDeactivated && (
                   <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm font-medium" data-testid="text-login-error">
-                    {loginError.message}
+                    {loginError.message === "company_deactivated"
+                      ? "Доступ приостановлен"
+                      : loginError.message}
                   </div>
                 )}
 

@@ -63,10 +63,10 @@ export function setupAuth(app: Express) {
       try {
         const user = await storage.getUserByUsername(username);
         if (!user || !(await comparePasswords(password, user.password))) {
-          return done(null, false);
+          return done(null, false, { message: "invalid_credentials" });
         }
         if (!(await isCompanyActive(user))) {
-          return done(null, false);
+          return done(null, false, { message: "company_deactivated" });
         }
         return done(null, user);
       } catch (err) {
@@ -94,6 +94,9 @@ export function setupAuth(app: Express) {
         return next(err);
       }
       if (!user) {
+        if (info?.message === "company_deactivated") {
+          return res.status(403).json({ message: "company_deactivated" });
+        }
         return res.status(401).json({ message: "Неверные учётные данные" });
       }
       req.logIn(user, (err) => {
@@ -119,7 +122,7 @@ export function setupAuth(app: Express) {
     const user = req.user as User;
     if (!(await isCompanyActive(user))) {
       req.logout(() => {});
-      return res.status(403).json({ message: "Компания деактивирована" });
+      return res.status(403).json({ message: "company_deactivated" });
     }
     res.json(sanitizeUser(user));
   });

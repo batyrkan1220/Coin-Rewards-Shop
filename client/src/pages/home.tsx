@@ -22,6 +22,7 @@ import {
   Lock,
   Globe,
   HeadphonesIcon,
+  MessageCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -428,7 +429,16 @@ export default function HomePage() {
             <div>
               <h4 className="font-display font-bold text-foreground mb-3 text-sm">Контакты</h4>
               <div className="space-y-2 text-sm text-muted-foreground">
-                <p>tabys.link</p>
+                <a
+                  href="https://wa.me/77770145874"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 hover:text-foreground transition-colors"
+                  data-testid="link-footer-whatsapp"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  +7 777 014 58 74
+                </a>
                 <p>Казахстан</p>
               </div>
             </div>

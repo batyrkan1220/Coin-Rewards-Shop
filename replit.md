@@ -139,7 +139,19 @@ client/src/
 - Companies table has phone and trialEndsAt fields
 - 20 template shop items auto-created for new companies
 
+## Support Contact
+- WhatsApp: +7 777 014 58 74
+- Direct link: https://wa.me/77770145874
+- Shown on: homepage footer contacts, deactivated company login page
+
+## Company Deactivation Flow
+- When Super Admin deactivates a company (isActive=false), all users from that company:
+  - Cannot log in (403 with "company_deactivated" message)
+  - Get logged out if already authenticated (redirected to /auth?reason=company_deactivated)
+  - See "Доступ приостановлен" card with expired plan message and WhatsApp support link
+
 ## Recent Changes
+- 2026-02-11: Added company deactivation flow: users see expired plan message with WhatsApp support link, homepage footer shows WhatsApp contact
 - 2026-02-10: Removed pricing/tariff section from homepage, added phone number to registration, free 3-day trial for all new companies, "Tabys" branding (capital T in text, lowercase in logo)
 - 2026-02-10: Redesigned homepage with marketing sections: hero, stats, features, how-it-works, audience, about, CTA
 - 2026-02-10: Added 20 template shop items auto-created for new companies

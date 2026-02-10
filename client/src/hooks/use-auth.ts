@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, type InsertUser } from "@shared/routes";
 import { useLocation } from "wouter";
@@ -14,12 +15,24 @@ type LoginData = z.infer<typeof loginSchema>;
 export function useAuth() {
   const queryClient = useQueryClient();
   const [location, setLocation] = useLocation();
+  const [companyDeactivated, setCompanyDeactivated] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("reason") === "company_deactivated";
+  });
 
   const { data: user, isLoading, error } = useQuery({
     queryKey: [api.auth.me.path],
     queryFn: async () => {
       const res = await fetch(api.auth.me.path, { credentials: "include" });
       if (res.status === 401) return null;
+      if (res.status === 403) {
+        const data = await res.json();
+        if (data.message === "company_deactivated") {
+          setCompanyDeactivated(true);
+          window.location.href = "/auth?reason=company_deactivated";
+          return null;
+        }
+      }
       if (!res.ok) throw new Error("Failed to fetch user");
       return await res.json();
     },
@@ -36,13 +49,21 @@ export function useAuth() {
       });
       
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Ошибка входа");
+        const data = await res.json();
+        if (data.message === "company_deactivated") {
+          setCompanyDeactivated(true);
+          throw new Error("company_deactivated");
+        }
+        throw new Error(data.message || "Ошибка входа");
       }
       
       return await res.json();
     },
     onSuccess: (data) => {
+      setCompanyDeactivated(false);
+      if (window.location.search.includes("reason=")) {
+        window.history.replaceState({}, "", "/auth");
+      }
       queryClient.setQueryData([api.auth.me.path], data);
       setLocation(data.role === ROLES.SUPER_ADMIN ? "/super-admin" : "/dashboard");
     },
@@ -54,6 +75,7 @@ export function useAuth() {
     },
     onSuccess: () => {
       queryClient.setQueryData([api.auth.me.path], null);
+      setCompanyDeactivated(false);
       setLocation("/");
     },
   });
@@ -62,6 +84,7 @@ export function useAuth() {
     user,
     isLoading,
     error,
+    companyDeactivated,
     login: loginMutation.mutate,
     isLoggingIn: loginMutation.isPending,
     loginError: loginMutation.error,

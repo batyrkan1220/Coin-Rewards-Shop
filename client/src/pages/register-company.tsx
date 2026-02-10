@@ -7,9 +7,9 @@ import { Label } from "@/components/ui/label";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Building2, Loader2, Phone, Check } from "lucide-react";
+import { Building2, Loader2, Phone, Check, Eye, EyeOff } from "lucide-react";
 import { useLocation, Link } from "wouter";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -30,6 +30,7 @@ export default function RegisterCompanyPage() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (user) setLocation("/dashboard");
@@ -166,7 +167,26 @@ export default function RegisterCompanyPage() {
                       <FormItem>
                         <FormLabel>Пароль</FormLabel>
                         <FormControl>
-                          <Input type="password" placeholder="Минимум 6 символов" {...field} className="h-11 bg-muted/30" data-testid="input-admin-password" />
+                          <div className="relative">
+                            <Input
+                              type={showPassword ? "text" : "password"}
+                              placeholder="Минимум 6 символов"
+                              {...field}
+                              className="h-11 bg-muted/30 pr-11"
+                              data-testid="input-admin-password"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground"
+                              onClick={() => setShowPassword(!showPassword)}
+                              tabIndex={-1}
+                              data-testid="button-toggle-password"
+                            >
+                              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </Button>
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>

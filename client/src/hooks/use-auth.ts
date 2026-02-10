@@ -54,7 +54,7 @@ export function useAuth() {
     },
     onSuccess: () => {
       queryClient.setQueryData([api.auth.me.path], null);
-      setLocation("/auth");
+      setLocation("/");
     },
   });
 

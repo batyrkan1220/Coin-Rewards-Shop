@@ -6,18 +6,19 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Coins, Loader2 } from "lucide-react";
+import { Coins, Loader2, Eye, EyeOff } from "lucide-react";
 import { useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 const loginSchema = z.object({
-  username: z.string().min(1, "Введите имя пользователя"),
+  username: z.string().min(1, "Введите логин"),
   password: z.string().min(1, "Введите пароль"),
 });
 
 export default function AuthPage() {
   const { login, isLoggingIn, loginError, user } = useAuth();
   const [, setLocation] = useLocation();
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (user) setLocation("/dashboard");
@@ -47,7 +48,7 @@ export default function AuthPage() {
         <Card className="border-border/50 shadow-2xl shadow-black/5">
           <CardHeader className="text-center pb-2">
             <CardTitle className="text-2xl font-display font-bold">Вход в систему</CardTitle>
-            <CardDescription>Введите данные для доступа к корпоративному магазину</CardDescription>
+            <CardDescription>Введите данные для доступа к платформе Tabys</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -57,9 +58,9 @@ export default function AuthPage() {
                   name="username"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Имя пользователя</FormLabel>
+                      <FormLabel>Логин</FormLabel>
                       <FormControl>
-                        <Input placeholder="username" {...field} className="h-11 bg-muted/30" />
+                        <Input placeholder="Логин" {...field} className="h-11 bg-muted/30" data-testid="input-login" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -72,7 +73,26 @@ export default function AuthPage() {
                     <FormItem>
                       <FormLabel>Пароль</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="••••••••" {...field} className="h-11 bg-muted/30" />
+                        <div className="relative">
+                          <Input
+                            type={showPassword ? "text" : "password"}
+                            placeholder="Пароль"
+                            {...field}
+                            className="h-11 bg-muted/30 pr-11"
+                            data-testid="input-password"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground"
+                            onClick={() => setShowPassword(!showPassword)}
+                            tabIndex={-1}
+                            data-testid="button-toggle-password"
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </Button>
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -80,12 +100,12 @@ export default function AuthPage() {
                 />
                 
                 {loginError && (
-                  <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm font-medium">
+                  <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm font-medium" data-testid="text-login-error">
                     {loginError.message}
                   </div>
                 )}
 
-                <Button type="submit" className="w-full h-11 text-base shadow-lg shadow-primary/20" disabled={isLoggingIn}>
+                <Button type="submit" className="w-full h-11 text-base shadow-lg shadow-primary/20" disabled={isLoggingIn} data-testid="button-submit-login">
                   {isLoggingIn ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                   Войти
                 </Button>

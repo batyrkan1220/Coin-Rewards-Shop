@@ -46,26 +46,26 @@ export async function registerRoutes(
 
   const createTemplateShopItems = async (companyId: number, skipTitles?: Set<string>) => {
     const templates = [
-      { title: "Билет в кино", description: "Билет на любой фильм в кинотеатре. Действителен 30 дней.", priceCoins: 50, stock: 20 },
-      { title: "Сертификат Золотое Яблоко 5 000 KZT", description: "Подарочный сертификат на 5 000 KZT в магазин Золотое Яблоко. Косметика, парфюмерия и уход.", priceCoins: 100, stock: 10 },
-      { title: "Сертификат Золотое Яблоко 10 000 KZT", description: "Подарочный сертификат на 10 000 KZT в магазин Золотое Яблоко.", priceCoins: 200, stock: 5 },
-      { title: "Конная прогулка", description: "Конная прогулка на 1 час в конном клубе. Инструктор и экипировка включены.", priceCoins: 150, stock: 10 },
-      { title: "Сертификат Glovo 3 000 KZT", description: "Промокод на 3 000 KZT для заказа еды через Glovo.", priceCoins: 60, stock: 15 },
-      { title: "Сертификат Wolt 5 000 KZT", description: "Промокод на 5 000 KZT для заказа еды и продуктов через Wolt.", priceCoins: 100, stock: 10 },
-      { title: "Абонемент в тренажерный зал (1 мес)", description: "Месячный абонемент в фитнес-клуб. Тренажерный зал, групповые занятия.", priceCoins: 250, stock: 5 },
-      { title: "Кофейный абонемент (10 чашек)", description: "Абонемент на 10 чашек кофе в партнерской кофейне. Любой напиток.", priceCoins: 40, stock: 20 },
-      { title: "Квест-комната (команда до 4 чел.)", description: "Сертификат на квест-комнату для команды до 4 человек. 60 минут приключений.", priceCoins: 200, stock: 8 },
-      { title: "Дополнительный выходной", description: "Один дополнительный оплачиваемый выходной день. Согласовывается с руководителем.", priceCoins: 300, stock: 5 },
-      { title: "Сертификат Kaspi Магазин 5 000 KZT", description: "Подарочный сертификат на 5 000 KZT в Kaspi Магазин. Электроника, товары для дома.", priceCoins: 100, stock: 10 },
-      { title: "Сертификат Kaspi Магазин 10 000 KZT", description: "Подарочный сертификат на 10 000 KZT в Kaspi Магазин.", priceCoins: 200, stock: 5 },
-      { title: "Боулинг (2 часа)", description: "Аренда дорожки для боулинга на 2 часа для компании до 6 человек.", priceCoins: 180, stock: 8 },
-      { title: "Фирменная кружка", description: "Стильная фирменная кружка с логотипом компании. Керамика, 350 мл.", priceCoins: 30, stock: 30 },
-      { title: "Фирменный худи", description: "Теплый худи с логотипом компании. Размеры S-XXL. 100% хлопок.", priceCoins: 150, stock: 10 },
-      { title: "Фирменная футболка", description: "Качественная футболка с логотипом компании. Размеры S-XXL.", priceCoins: 80, stock: 15 },
-      { title: "Настольная игра", description: "Популярная настольная игра для вечера с друзьями или коллегами.", priceCoins: 70, stock: 10 },
-      { title: "Сертификат на массаж", description: "Сеанс массажа 60 минут в партнерском SPA-салоне.", priceCoins: 200, stock: 8 },
-      { title: "Портативная колонка", description: "Bluetooth-колонка для музыки. Компактная, водозащита IPX5.", priceCoins: 350, stock: 3 },
-      { title: "Ланч с руководителем", description: "Обед в ресторане с руководителем компании. Отличная возможность для общения.", priceCoins: 120, stock: 5 },
+      { title: "Билет в кино", description: "Билет на любой фильм в кинотеатре. Действителен 30 дней.", priceCoins: 50, stock: 20, imageUrl: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=600&h=600&fit=crop&q=80" },
+      { title: "Сертификат Золотое Яблоко 5 000 KZT", description: "Подарочный сертификат на 5 000 KZT в магазин Золотое Яблоко. Косметика, парфюмерия и уход.", priceCoins: 100, stock: 10, imageUrl: "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=600&h=600&fit=crop&q=80" },
+      { title: "Сертификат Золотое Яблоко 10 000 KZT", description: "Подарочный сертификат на 10 000 KZT в магазин Золотое Яблоко.", priceCoins: 200, stock: 5, imageUrl: "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=600&h=600&fit=crop&q=80" },
+      { title: "Конная прогулка", description: "Конная прогулка на 1 час в конном клубе. Инструктор и экипировка включены.", priceCoins: 150, stock: 10, imageUrl: "https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=600&h=600&fit=crop&q=80" },
+      { title: "Сертификат Glovo 3 000 KZT", description: "Промокод на 3 000 KZT для заказа еды через Glovo.", priceCoins: 60, stock: 15, imageUrl: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&h=600&fit=crop&q=80" },
+      { title: "Сертификат Wolt 5 000 KZT", description: "Промокод на 5 000 KZT для заказа еды и продуктов через Wolt.", priceCoins: 100, stock: 10, imageUrl: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&h=600&fit=crop&q=80" },
+      { title: "Абонемент в тренажерный зал (1 мес)", description: "Месячный абонемент в фитнес-клуб. Тренажерный зал, групповые занятия.", priceCoins: 250, stock: 5, imageUrl: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600&h=600&fit=crop&q=80" },
+      { title: "Кофейный абонемент (10 чашек)", description: "Абонемент на 10 чашек кофе в партнерской кофейне. Любой напиток.", priceCoins: 40, stock: 20, imageUrl: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600&h=600&fit=crop&q=80" },
+      { title: "Квест-комната (команда до 4 чел.)", description: "Сертификат на квест-комнату для команды до 4 человек. 60 минут приключений.", priceCoins: 200, stock: 8, imageUrl: "https://images.unsplash.com/photo-1511882150382-421056c89033?w=600&h=600&fit=crop&q=80" },
+      { title: "Дополнительный выходной", description: "Один дополнительный оплачиваемый выходной день. Согласовывается с руководителем.", priceCoins: 300, stock: 5, imageUrl: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&h=600&fit=crop&q=80" },
+      { title: "Сертификат Kaspi Магазин 5 000 KZT", description: "Подарочный сертификат на 5 000 KZT в Kaspi Магазин. Электроника, товары для дома.", priceCoins: 100, stock: 10, imageUrl: "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600&h=600&fit=crop&q=80" },
+      { title: "Сертификат Kaspi Магазин 10 000 KZT", description: "Подарочный сертификат на 10 000 KZT в Kaspi Магазин.", priceCoins: 200, stock: 5, imageUrl: "https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=600&h=600&fit=crop&q=80" },
+      { title: "Боулинг (2 часа)", description: "Аренда дорожки для боулинга на 2 часа для компании до 6 человек.", priceCoins: 180, stock: 8, imageUrl: "https://images.unsplash.com/photo-1545232979-8bf68ee9b1af?w=600&h=600&fit=crop&q=80" },
+      { title: "Фирменная кружка", description: "Стильная фирменная кружка с логотипом компании. Керамика, 350 мл.", priceCoins: 30, stock: 30, imageUrl: "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=600&h=600&fit=crop&q=80" },
+      { title: "Фирменный худи", description: "Теплый худи с логотипом компании. Размеры S-XXL. 100% хлопок.", priceCoins: 150, stock: 10, imageUrl: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=600&h=600&fit=crop&q=80" },
+      { title: "Фирменная футболка", description: "Качественная футболка с логотипом компании. Размеры S-XXL.", priceCoins: 80, stock: 15, imageUrl: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=600&h=600&fit=crop&q=80" },
+      { title: "Настольная игра", description: "Популярная настольная игра для вечера с друзьями или коллегами.", priceCoins: 70, stock: 10, imageUrl: "https://images.unsplash.com/photo-1611371805429-8b5c1b2c34ba?w=600&h=600&fit=crop&q=80" },
+      { title: "Сертификат на массаж", description: "Сеанс массажа 60 минут в партнерском SPA-салоне.", priceCoins: 200, stock: 8, imageUrl: "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=600&h=600&fit=crop&q=80" },
+      { title: "Портативная колонка", description: "Bluetooth-колонка для музыки. Компактная, водозащита IPX5.", priceCoins: 350, stock: 3, imageUrl: "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=600&h=600&fit=crop&q=80" },
+      { title: "Ланч с руководителем", description: "Обед в ресторане с руководителем компании. Отличная возможность для общения.", priceCoins: 120, stock: 5, imageUrl: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=600&h=600&fit=crop&q=80" },
     ];
 
     for (const item of templates) {
@@ -73,7 +73,6 @@ export async function registerRoutes(
       await storage.createShopItem({
         ...item,
         isActive: true,
-        imageUrl: null,
         companyId,
       });
     }
@@ -89,6 +88,29 @@ export async function registerRoutes(
     "Настольная игра", "Сертификат на массаж", "Портативная колонка", "Ланч с руководителем",
   ];
 
+  const TEMPLATE_IMAGE_MAP: Record<string, string> = {
+    "Билет в кино": "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=600&h=600&fit=crop&q=80",
+    "Сертификат Золотое Яблоко 5 000 KZT": "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=600&h=600&fit=crop&q=80",
+    "Сертификат Золотое Яблоко 10 000 KZT": "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=600&h=600&fit=crop&q=80",
+    "Конная прогулка": "https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=600&h=600&fit=crop&q=80",
+    "Сертификат Glovo 3 000 KZT": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&h=600&fit=crop&q=80",
+    "Сертификат Wolt 5 000 KZT": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&h=600&fit=crop&q=80",
+    "Абонемент в тренажерный зал (1 мес)": "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600&h=600&fit=crop&q=80",
+    "Кофейный абонемент (10 чашек)": "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600&h=600&fit=crop&q=80",
+    "Квест-комната (команда до 4 чел.)": "https://images.unsplash.com/photo-1511882150382-421056c89033?w=600&h=600&fit=crop&q=80",
+    "Дополнительный выходной": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&h=600&fit=crop&q=80",
+    "Сертификат Kaspi Магазин 5 000 KZT": "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600&h=600&fit=crop&q=80",
+    "Сертификат Kaspi Магазин 10 000 KZT": "https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=600&h=600&fit=crop&q=80",
+    "Боулинг (2 часа)": "https://images.unsplash.com/photo-1545232979-8bf68ee9b1af?w=600&h=600&fit=crop&q=80",
+    "Фирменная кружка": "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=600&h=600&fit=crop&q=80",
+    "Фирменный худи": "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=600&h=600&fit=crop&q=80",
+    "Фирменная футболка": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=600&h=600&fit=crop&q=80",
+    "Настольная игра": "https://images.unsplash.com/photo-1611371805429-8b5c1b2c34ba?w=600&h=600&fit=crop&q=80",
+    "Сертификат на массаж": "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=600&h=600&fit=crop&q=80",
+    "Портативная колонка": "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=600&h=600&fit=crop&q=80",
+    "Ланч с руководителем": "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=600&h=600&fit=crop&q=80",
+  };
+
   (async () => {
     try {
       const companies = await storage.listCompanies();
@@ -99,6 +121,11 @@ export async function registerRoutes(
         if (!hasAllTemplates) {
           await createTemplateShopItems(company.id, existingTitles);
           console.log(`Added missing template shop items for company ${company.id} (${company.name})`);
+        }
+        for (const item of items) {
+          if (!item.imageUrl && TEMPLATE_IMAGE_MAP[item.title]) {
+            await storage.updateShopItem(item.id, { imageUrl: TEMPLATE_IMAGE_MAP[item.title] });
+          }
         }
       }
     } catch (e) {

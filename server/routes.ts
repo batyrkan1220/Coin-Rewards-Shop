@@ -44,7 +44,7 @@ export async function registerRoutes(
     }
   };
 
-  const createTemplateShopItems = async (companyId: number) => {
+  const createTemplateShopItems = async (companyId: number, skipTitles?: Set<string>) => {
     const templates = [
       { title: "Билет в кино", description: "Билет на любой фильм в кинотеатре. Действителен 30 дней.", priceCoins: 50, stock: 20 },
       { title: "Сертификат Золотое Яблоко 5 000 KZT", description: "Подарочный сертификат на 5 000 KZT в магазин Золотое Яблоко. Косметика, парфюмерия и уход.", priceCoins: 100, stock: 10 },
@@ -69,6 +69,7 @@ export async function registerRoutes(
     ];
 
     for (const item of templates) {
+      if (skipTitles && skipTitles.has(item.title)) continue;
       await storage.createShopItem({
         ...item,
         isActive: true,
@@ -77,6 +78,33 @@ export async function registerRoutes(
       });
     }
   };
+
+  const TEMPLATE_TITLES = [
+    "Билет в кино", "Сертификат Золотое Яблоко 5 000 KZT", "Сертификат Золотое Яблоко 10 000 KZT",
+    "Конная прогулка", "Сертификат Glovo 3 000 KZT", "Сертификат Wolt 5 000 KZT",
+    "Абонемент в тренажерный зал (1 мес)", "Кофейный абонемент (10 чашек)",
+    "Квест-комната (команда до 4 чел.)", "Дополнительный выходной",
+    "Сертификат Kaspi Магазин 5 000 KZT", "Сертификат Kaspi Магазин 10 000 KZT",
+    "Боулинг (2 часа)", "Фирменная кружка", "Фирменный худи", "Фирменная футболка",
+    "Настольная игра", "Сертификат на массаж", "Портативная колонка", "Ланч с руководителем",
+  ];
+
+  (async () => {
+    try {
+      const companies = await storage.listCompanies();
+      for (const company of companies) {
+        const items = await storage.listShopItems(company.id);
+        const existingTitles = new Set(items.map((i: any) => i.title));
+        const hasAllTemplates = TEMPLATE_TITLES.every(t => existingTitles.has(t));
+        if (!hasAllTemplates) {
+          await createTemplateShopItems(company.id, existingTitles);
+          console.log(`Added missing template shop items for company ${company.id} (${company.name})`);
+        }
+      }
+    } catch (e) {
+      console.error("Error seeding template shop items:", e);
+    }
+  })();
 
   // ==========================================
   // SUPER ADMIN ROUTES

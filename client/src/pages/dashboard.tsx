@@ -4,7 +4,9 @@ import { useRedemptions, useUpdateRedemptionStatus } from "@/hooks/use-redemptio
 import { useUsers, useTeams } from "@/hooks/use-team";
 import { useShopItems } from "@/hooks/use-shop";
 import { useLessons } from "@/hooks/use-lessons";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,12 +28,15 @@ import {
   AlertCircle,
   ArrowRight,
   Loader2,
+  Trophy,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { ROLES } from "@shared/schema";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect, useRef } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -39,6 +44,28 @@ export default function Dashboard() {
   const { data: myRedemptions, isLoading: redLoading } = useRedemptions("my");
   const { data: balance } = useBalance(user?.id);
   const { toast } = useToast();
+
+  const { data: levelData } = useQuery<{
+    totalEarnedCoins: number;
+    currentLevel: any | null;
+    nextLevel: any | null;
+    coinsToNext: number;
+  }>({
+    queryKey: ["/api/my-level"],
+  });
+
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const prevLevelRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (levelData?.currentLevel) {
+      const currentName = levelData.currentLevel.name;
+      if (prevLevelRef.current !== null && prevLevelRef.current !== currentName) {
+        setShowLevelUp(true);
+      }
+      prevLevelRef.current = currentName;
+    }
+  }, [levelData?.currentLevel]);
 
   const isAdmin = user?.role === ROLES.ADMIN;
   const isRop = user?.role === ROLES.ROP;
@@ -130,6 +157,69 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {levelData && (
+        <Card data-testid="card-level-progress">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+            <CardTitle className="font-display flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-yellow-500" />
+              {levelData.currentLevel ? levelData.currentLevel.displayName : "Нет уровня"}
+            </CardTitle>
+            {levelData.nextLevel && (
+              <span className="text-xs text-muted-foreground" data-testid="text-next-level">
+                Следующий: {levelData.nextLevel.displayName}
+              </span>
+            )}
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <span className="text-muted-foreground">Всего заработано: <span className="font-semibold text-foreground" data-testid="text-total-earned-coins">{levelData.totalEarnedCoins}</span> монет</span>
+              {levelData.nextLevel && (
+                <span className="text-muted-foreground">
+                  До {levelData.nextLevel.displayName}: <span className="font-semibold text-foreground" data-testid="text-coins-to-next">{levelData.coinsToNext}</span>
+                </span>
+              )}
+            </div>
+            {levelData.nextLevel ? (
+              <Progress
+                value={
+                  levelData.currentLevel
+                    ? ((levelData.totalEarnedCoins - levelData.currentLevel.requiredCoins) / (levelData.nextLevel.requiredCoins - levelData.currentLevel.requiredCoins)) * 100
+                    : (levelData.totalEarnedCoins / levelData.nextLevel.requiredCoins) * 100
+                }
+                className="h-3"
+                data-testid="progress-level"
+              />
+            ) : (
+              <div className="text-sm text-muted-foreground">Достигнут максимальный уровень</div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <Dialog open={showLevelUp} onOpenChange={setShowLevelUp}>
+        <DialogContent className="text-center">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-display" data-testid="text-level-up-title">
+              Новый уровень!
+            </DialogTitle>
+            <DialogDescription>
+              Поздравляем! Вы достигли уровня
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-6 flex flex-col items-center gap-4">
+            <div className="w-20 h-20 rounded-full bg-yellow-500/10 flex items-center justify-center">
+              <Trophy className="w-10 h-10 text-yellow-500" />
+            </div>
+            <div className="text-3xl font-bold font-display" data-testid="text-level-up-name">
+              {levelData?.currentLevel?.displayName}
+            </div>
+          </div>
+          <Button onClick={() => setShowLevelUp(false)} data-testid="button-close-level-up">
+            Отлично!
+          </Button>
+        </DialogContent>
+      </Dialog>
 
       {pendingCount > 0 && (
         <Card className="border-yellow-500/30 bg-yellow-500/5">

@@ -1,15 +1,16 @@
 import { db } from "./db";
 import {
   users, teams, shopItems, coinTransactions, redemptions, lessons, auditLogs, inviteTokens,
-  companies, subscriptionPlans,
+  companies, subscriptionPlans, levelConfigs,
   type User, type InsertUser, type Team, type InsertTeam,
   type ShopItem, type InsertShopItem, type CoinTransaction, type InsertTransaction,
   type Redemption, type InsertRedemption, type Lesson, type InsertLesson,
   type AuditLog, type InviteToken, type InsertInviteToken,
   type Company, type InsertCompany, type SubscriptionPlan, type InsertPlan,
-  REDEMPTION_STATUS, TRANSACTION_STATUS
+  type LevelConfig, type InsertLevelConfig,
+  REDEMPTION_STATUS, TRANSACTION_STATUS, TRANSACTION_TYPES
 } from "@shared/schema";
-import { eq, desc, sql, and } from "drizzle-orm";
+import { eq, desc, sql, and, asc } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
@@ -68,6 +69,12 @@ export interface IStorage {
   updatePlan(id: number, updates: Partial<InsertPlan>): Promise<SubscriptionPlan>;
 
   getUserCountByCompany(companyId: number): Promise<number>;
+
+  listLevelConfigs(companyId?: number): Promise<LevelConfig[]>;
+  getLevelConfig(id: number): Promise<LevelConfig | undefined>;
+  createLevelConfig(config: InsertLevelConfig): Promise<LevelConfig>;
+  updateLevelConfig(id: number, updates: Partial<InsertLevelConfig>, companyId?: number): Promise<LevelConfig>;
+  getTotalEarnedCoins(userId: number): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -440,6 +447,44 @@ export class DatabaseStorage implements IStorage {
       .from(users)
       .where(eq(users.companyId, companyId));
     return Number(result[0].count);
+  }
+
+  async listLevelConfigs(companyId?: number): Promise<LevelConfig[]> {
+    if (companyId) {
+      return await db.select().from(levelConfigs).where(eq(levelConfigs.companyId, companyId)).orderBy(asc(levelConfigs.orderIndex));
+    }
+    return await db.select().from(levelConfigs).orderBy(asc(levelConfigs.orderIndex));
+  }
+
+  async getLevelConfig(id: number): Promise<LevelConfig | undefined> {
+    const [config] = await db.select().from(levelConfigs).where(eq(levelConfigs.id, id));
+    return config;
+  }
+
+  async createLevelConfig(config: InsertLevelConfig): Promise<LevelConfig> {
+    const [result] = await db.insert(levelConfigs).values(config).returning();
+    return result;
+  }
+
+  async updateLevelConfig(id: number, updates: Partial<InsertLevelConfig>, companyId?: number): Promise<LevelConfig> {
+    const conditions = [eq(levelConfigs.id, id)];
+    if (companyId) conditions.push(eq(levelConfigs.companyId, companyId));
+    const [result] = await db.update(levelConfigs).set(updates).where(and(...conditions)).returning();
+    return result;
+  }
+
+  async getTotalEarnedCoins(userId: number): Promise<number> {
+    const result = await db
+      .select({
+        total: sql<number>`coalesce(sum(${coinTransactions.amount}), 0)`
+      })
+      .from(coinTransactions)
+      .where(and(
+        eq(coinTransactions.userId, userId),
+        eq(coinTransactions.type, TRANSACTION_TYPES.EARN),
+        eq(coinTransactions.status, TRANSACTION_STATUS.APPROVED)
+      ));
+    return Number(result[0].total);
   }
 }
 

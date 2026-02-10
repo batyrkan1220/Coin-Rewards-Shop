@@ -23,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Pencil, Check, X, Package, Users, BookOpen, ShoppingBag, List, Shield, ArrowUpRight, ArrowDownLeft, Trash2, Video, FileText, Link as LinkIcon, ImageOff, Copy, LinkIcon as Link2Icon, XCircle } from "lucide-react";
+import { Loader2, Plus, Pencil, Check, X, Package, Users, BookOpen, ShoppingBag, List, Shield, ArrowUpRight, ArrowDownLeft, Trash2, Video, FileText, Link as LinkIcon, ImageOff, Copy, LinkIcon as Link2Icon, XCircle, Trophy } from "lucide-react";
 import { ImageCropUploader } from "@/components/image-crop-uploader";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -60,6 +60,14 @@ const lessonSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+const levelSchema = z.object({
+  name: z.string().min(1, "Обязательно"),
+  displayName: z.string().min(1, "Обязательно"),
+  requiredCoins: z.coerce.number().min(0, "Минимум 0"),
+  orderIndex: z.coerce.number().min(0, "Минимум 0"),
+  isActive: z.boolean().optional(),
+});
+
 export default function AdminPage() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
@@ -89,6 +97,7 @@ export default function AdminPage() {
           <TabsTrigger value="transactions" data-testid="tab-transactions"><List className="w-4 h-4 mr-1" /> Транзакции</TabsTrigger>
           <TabsTrigger value="audit" data-testid="tab-audit"><Shield className="w-4 h-4 mr-1" /> Журнал</TabsTrigger>
           <TabsTrigger value="invites" data-testid="tab-invites"><Link2Icon className="w-4 h-4 mr-1" /> Приглашения</TabsTrigger>
+          <TabsTrigger value="levels" data-testid="tab-levels"><Trophy className="w-4 h-4 mr-1" /> Уровни</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users"><UsersTab /></TabsContent>
@@ -99,6 +108,7 @@ export default function AdminPage() {
         <TabsContent value="transactions"><TransactionsTab /></TabsContent>
         <TabsContent value="audit"><AuditTab /></TabsContent>
         <TabsContent value="invites"><InvitesTab /></TabsContent>
+        <TabsContent value="levels"><LevelsTab /></TabsContent>
       </Tabs>
     </div>
   );
@@ -1223,6 +1233,228 @@ function InvitesTab() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function LevelsTab() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [showCreate, setShowCreate] = useState(false);
+  const [editingLevel, setEditingLevel] = useState<any>(null);
+
+  const { data: levels, isLoading } = useQuery<any[]>({
+    queryKey: ["/api/levels"],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof levelSchema>) => {
+      const { apiRequest } = await import("@/lib/queryClient");
+      await apiRequest("POST", "/api/levels", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/levels"] });
+      setShowCreate(false);
+      toast({ title: "Уровень создан" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Ошибка", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, ...data }: any) => {
+      const { apiRequest } = await import("@/lib/queryClient");
+      await apiRequest("PATCH", `/api/levels/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/levels"] });
+      setEditingLevel(null);
+      toast({ title: "Уровень обновлен" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Ошибка", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const createForm = useForm<z.infer<typeof levelSchema>>({
+    resolver: zodResolver(levelSchema),
+    defaultValues: { name: "", displayName: "", requiredCoins: 0, orderIndex: 0, isActive: true },
+  });
+
+  const editForm = useForm<z.infer<typeof levelSchema>>({
+    resolver: zodResolver(levelSchema),
+    defaultValues: { name: "", displayName: "", requiredCoins: 0, orderIndex: 0, isActive: true },
+  });
+
+  useEffect(() => {
+    if (editingLevel) {
+      editForm.reset({
+        name: editingLevel.name,
+        displayName: editingLevel.displayName,
+        requiredCoins: editingLevel.requiredCoins,
+        orderIndex: editingLevel.orderIndex,
+        isActive: editingLevel.isActive,
+      });
+    }
+  }, [editingLevel, editForm]);
+
+  if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <h3 className="text-lg font-semibold">Уровни</h3>
+        <Button onClick={() => { createForm.reset({ name: "", displayName: "", requiredCoins: 0, orderIndex: (levels?.length ?? 0) + 1, isActive: true }); setShowCreate(true); }} data-testid="button-create-level">
+          <Plus className="w-4 h-4 mr-1" /> Добавить уровень
+        </Button>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b">
+              <th className="p-3 text-left">Порядок</th>
+              <th className="p-3 text-left">Системное название</th>
+              <th className="p-3 text-left">Отображение</th>
+              <th className="p-3 text-left">Монеты</th>
+              <th className="p-3 text-left">Статус</th>
+              <th className="p-3 text-left">Действия</th>
+            </tr>
+          </thead>
+          <tbody>
+            {levels?.map((level: any) => (
+              <tr key={level.id} className="border-t" data-testid={`row-level-${level.id}`}>
+                <td className="p-3 font-mono">{level.orderIndex}</td>
+                <td className="p-3">{level.name}</td>
+                <td className="p-3 font-semibold">{level.displayName}</td>
+                <td className="p-3 font-mono">{level.requiredCoins}</td>
+                <td className="p-3">
+                  <Badge variant={level.isActive ? "default" : "secondary"}>
+                    {level.isActive ? "Активен" : "Неактивен"}
+                  </Badge>
+                </td>
+                <td className="p-3">
+                  <Button size="icon" variant="ghost" onClick={() => setEditingLevel(level)} data-testid={`button-edit-level-${level.id}`}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </td>
+              </tr>
+            ))}
+            {(!levels || levels.length === 0) && (
+              <tr>
+                <td colSpan={6} className="p-6 text-center text-muted-foreground">Нет уровней</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Новый уровень</DialogTitle>
+            <DialogDescription>Создание нового уровня в системе</DialogDescription>
+          </DialogHeader>
+          <Form {...createForm}>
+            <form onSubmit={createForm.handleSubmit((data) => createMutation.mutate(data))} className="space-y-4">
+              <FormField control={createForm.control} name="name" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Системное название</FormLabel>
+                  <FormControl><Input {...field} placeholder="Bronze" data-testid="input-level-name" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={createForm.control} name="displayName" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Отображение</FormLabel>
+                  <FormControl><Input {...field} placeholder="Золото" data-testid="input-level-display-name" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={createForm.control} name="requiredCoins" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Необходимо монет</FormLabel>
+                  <FormControl><Input type="number" {...field} data-testid="input-level-coins" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={createForm.control} name="orderIndex" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Порядок</FormLabel>
+                  <FormControl><Input type="number" {...field} data-testid="input-level-order" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={createForm.control} name="isActive" render={({ field }) => (
+                <FormItem className="flex items-center gap-2">
+                  <FormLabel>Активен</FormLabel>
+                  <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-level-active" /></FormControl>
+                </FormItem>
+              )} />
+              <DialogFooter>
+                <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit-level">
+                  {createMutation.isPending && <Loader2 className="animate-spin w-4 h-4 mr-1" />}
+                  Создать
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editingLevel} onOpenChange={(open) => !open && setEditingLevel(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Редактировать уровень</DialogTitle>
+            <DialogDescription>Изменение уровня "{editingLevel?.displayName}"</DialogDescription>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit((data) => updateMutation.mutate({ id: editingLevel.id, ...data }))} className="space-y-4">
+              <FormField control={editForm.control} name="name" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Системное название</FormLabel>
+                  <FormControl><Input {...field} data-testid="input-edit-level-name" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={editForm.control} name="displayName" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Отображение</FormLabel>
+                  <FormControl><Input {...field} data-testid="input-edit-level-display-name" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={editForm.control} name="requiredCoins" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Необходимо монет</FormLabel>
+                  <FormControl><Input type="number" {...field} data-testid="input-edit-level-coins" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={editForm.control} name="orderIndex" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Порядок</FormLabel>
+                  <FormControl><Input type="number" {...field} data-testid="input-edit-level-order" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={editForm.control} name="isActive" render={({ field }) => (
+                <FormItem className="flex items-center gap-2">
+                  <FormLabel>Активен</FormLabel>
+                  <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-edit-level-active" /></FormControl>
+                </FormItem>
+              )} />
+              <DialogFooter>
+                <Button type="submit" disabled={updateMutation.isPending} data-testid="button-update-level">
+                  {updateMutation.isPending && <Loader2 className="animate-spin w-4 h-4 mr-1" />}
+                  Сохранить
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

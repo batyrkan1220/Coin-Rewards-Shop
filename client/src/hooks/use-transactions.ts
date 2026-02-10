@@ -62,6 +62,7 @@ export function useCreateTransaction() {
       queryClient.invalidateQueries({ queryKey: [api.transactions.listAll.path] });
       queryClient.invalidateQueries({ queryKey: ["balance", variables.userId] });
       queryClient.invalidateQueries({ queryKey: [api.users.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-level"] });
     },
   });
 }
@@ -125,6 +126,7 @@ export function useUpdateTransactionStatus() {
       queryClient.invalidateQueries({ queryKey: [api.transactions.listAll.path] });
       queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === "balance" });
       queryClient.invalidateQueries({ queryKey: [api.users.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/my-level"] });
     },
   });
 }

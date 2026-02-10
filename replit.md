@@ -60,6 +60,7 @@ client/src/
 8. **lessons** - id, course, title, contentType, content, orderIndex, isActive, companyId, createdAt
 9. **audit_logs** - id, actorId, action, entity, entityId, details (jsonb), companyId, createdAt
 10. **invite_tokens** - id, token, teamId, createdById, usedById, expiresAt, usageLimit, usageCount, isActive, companyId, createdAt, usedAt
+11. **level_configs** - id, name, displayName, requiredCoins, orderIndex, isActive, companyId, createdAt
 
 ## Demo Credentials
 - Super Admin: superadmin@platform.com / superadmin123
@@ -144,6 +145,16 @@ client/src/
 - Direct link: https://wa.me/77770145874
 - Shown on: homepage footer contacts, deactivated company login page
 
+## Level System
+- Levels based on total earned coins (SUM of EARN transactions with APPROVED status only)
+- Spending coins does NOT reduce level progress - levels never decrease
+- Default 5 levels auto-created per company: Бронза(0), Серебро(100), Золото(500), Платина(1000), Алмаз(2500)
+- Admin manages levels via Admin > Уровни tab (create, edit, activate/deactivate)
+- Dashboard shows current level, progress bar to next level, and coins needed
+- Level-up popup dialog appears when user reaches a new level
+- API: GET /api/levels (list), POST /api/levels (create, ADMIN), PATCH /api/levels/:id (update, ADMIN), GET /api/my-level (current user level info)
+- Company-scoped: each company has its own level configuration
+
 ## Company Deactivation Flow
 - When Super Admin deactivates a company (isActive=false), all users from that company:
   - Cannot log in (403 with "company_deactivated" message)
@@ -151,6 +162,7 @@ client/src/
   - See "Доступ приостановлен" card with expired plan message and WhatsApp support link
 
 ## Recent Changes
+- 2026-02-11: Added Level system: level_configs table, admin CRUD tab, dashboard progress bar, level-up popup, default 5 levels per company, company-scoped
 - 2026-02-11: Added company deactivation flow: users see expired plan message with WhatsApp support link, homepage footer shows WhatsApp contact
 - 2026-02-10: Removed pricing/tariff section from homepage, added phone number to registration, free 3-day trial for all new companies, "Tabys" branding (capital T in text, lowercase in logo)
 - 2026-02-10: Redesigned homepage with marketing sections: hero, stats, features, how-it-works, audience, about, CTA

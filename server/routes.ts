@@ -44,6 +44,21 @@ export async function registerRoutes(
     }
   };
 
+  const createDefaultLevels = async (companyId: number) => {
+    const existing = await storage.listLevelConfigs(companyId);
+    if (existing.length > 0) return;
+    const defaults = [
+      { name: "Bronze", displayName: "Бронза", requiredCoins: 0, orderIndex: 1 },
+      { name: "Silver", displayName: "Серебро", requiredCoins: 100, orderIndex: 2 },
+      { name: "Gold", displayName: "Золото", requiredCoins: 500, orderIndex: 3 },
+      { name: "Platinum", displayName: "Платина", requiredCoins: 1000, orderIndex: 4 },
+      { name: "Diamond", displayName: "Алмаз", requiredCoins: 2500, orderIndex: 5 },
+    ];
+    for (const level of defaults) {
+      await storage.createLevelConfig({ ...level, isActive: true, companyId });
+    }
+  };
+
   const createTemplateShopItems = async (companyId: number, skipTitles?: Set<string>) => {
     const templates = [
       { title: "Билет в кино", description: "Билет на любой фильм в кинотеатре. Действителен 30 дней.", priceCoins: 50, stock: 20, imageUrl: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=600&h=600&fit=crop&q=80" },
@@ -131,6 +146,16 @@ export async function registerRoutes(
     } catch (e) {
       console.error("Error seeding template shop items:", e);
     }
+
+    try {
+      const companies = await storage.listCompanies();
+      for (const company of companies) {
+        await createDefaultLevels(company.id);
+      }
+      console.log("Default levels seeded for all companies");
+    } catch (e) {
+      console.error("Error seeding default levels:", e);
+    }
   })();
 
   // ==========================================
@@ -184,6 +209,7 @@ export async function registerRoutes(
       }
 
       await createTemplateShopItems(company.id);
+      await createDefaultLevels(company.id);
       await audit(req.user!.id, "CREATE_COMPANY", "company", company.id, { name: company.name });
       res.status(201).json({ company, adminCredentials });
     } catch (err) {
@@ -330,6 +356,7 @@ export async function registerRoutes(
       });
 
       await createTemplateShopItems(company.id);
+      await createDefaultLevels(company.id);
 
       req.login(adminUser, (err: any) => {
         if (err) return res.status(500).json({ message: "Ошибка авторизации" });
@@ -907,6 +934,65 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
       throw err;
     }
+  });
+
+  // === LEVELS ===
+  app.get(api.levels.list.path, requireAuth, async (req, res) => {
+    const configs = await storage.listLevelConfigs(getCompanyId(req));
+    res.json(configs);
+  });
+
+  app.post(api.levels.create.path, requireRole([ROLES.ADMIN]), async (req, res) => {
+    try {
+      const input = api.levels.create.input.parse(req.body);
+      const config = await storage.createLevelConfig({
+        ...input,
+        isActive: input.isActive ?? true,
+        companyId: getCompanyId(req) ?? null,
+      });
+      await audit(req.user!.id, "CREATE_LEVEL", "levelConfig", config.id, { name: config.name, displayName: config.displayName }, getCompanyId(req));
+      res.status(201).json(config);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
+      throw err;
+    }
+  });
+
+  app.patch(api.levels.update.path, requireRole([ROLES.ADMIN]), async (req, res) => {
+    try {
+      const input = api.levels.update.input.parse(req.body);
+      const config = await storage.updateLevelConfig(Number(req.params.id), input, getCompanyId(req));
+      await audit(req.user!.id, "UPDATE_LEVEL", "levelConfig", config.id, input, getCompanyId(req));
+      res.json(config);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0]?.message });
+      throw err;
+    }
+  });
+
+  app.get(api.levels.myLevel.path, requireAuth, async (req, res) => {
+    const user = req.user!;
+    const totalEarnedCoins = await storage.getTotalEarnedCoins(user.id);
+    const configs = await storage.listLevelConfigs(getCompanyId(req));
+    const activeConfigs = configs.filter(c => c.isActive).sort((a, b) => a.requiredCoins - b.requiredCoins);
+
+    let currentLevel = null;
+    let nextLevel = null;
+
+    for (let i = 0; i < activeConfigs.length; i++) {
+      if (totalEarnedCoins >= activeConfigs[i].requiredCoins) {
+        currentLevel = activeConfigs[i];
+        nextLevel = activeConfigs[i + 1] || null;
+      }
+    }
+
+    if (!currentLevel && activeConfigs.length > 0) {
+      nextLevel = activeConfigs[0];
+    }
+
+    const coinsToNext = nextLevel ? nextLevel.requiredCoins - totalEarnedCoins : 0;
+
+    res.json({ totalEarnedCoins, currentLevel, nextLevel, coinsToNext });
   });
 
   // === PROFILE ===

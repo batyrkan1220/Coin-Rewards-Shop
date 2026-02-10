@@ -152,6 +152,17 @@ export const inviteTokens = pgTable("invite_tokens", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const levelConfigs = pgTable("level_configs", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  displayName: text("display_name").notNull(),
+  requiredCoins: integer("required_coins").notNull().default(0),
+  orderIndex: integer("order_index").notNull().default(0),
+  isActive: boolean("is_active").default(true),
+  companyId: integer("company_id").references(() => companies.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const auditLogs = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
   actorId: integer("actor_id").references(() => users.id),
@@ -234,6 +245,7 @@ export const insertTransactionSchema = createInsertSchema(coinTransactions).omit
 export const insertRedemptionSchema = createInsertSchema(redemptions).omit({ id: true, createdAt: true, approvedAt: true, issuedAt: true });
 export const insertLessonSchema = createInsertSchema(lessons).omit({ id: true, createdAt: true });
 export const insertInviteTokenSchema = createInsertSchema(inviteTokens).omit({ id: true, createdAt: true, usedAt: true });
+export const insertLevelConfigSchema = createInsertSchema(levelConfigs).omit({ id: true, createdAt: true });
 
 // === TYPES ===
 
@@ -247,6 +259,7 @@ export type Redemption = typeof redemptions.$inferSelect;
 export type Lesson = typeof lessons.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InviteToken = typeof inviteTokens.$inferSelect;
+export type LevelConfig = typeof levelConfigs.$inferSelect;
 
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
 export type InsertPlan = z.infer<typeof insertPlanSchema>;
@@ -257,3 +270,4 @@ export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 export type InsertRedemption = z.infer<typeof insertRedemptionSchema>;
 export type InsertLesson = z.infer<typeof insertLessonSchema>;
 export type InsertInviteToken = z.infer<typeof insertInviteTokenSchema>;
+export type InsertLevelConfig = z.infer<typeof insertLevelConfigSchema>;

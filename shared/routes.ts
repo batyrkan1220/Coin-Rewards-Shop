@@ -6,6 +6,7 @@ import {
   insertLessonSchema,
   insertCompanySchema,
   insertPlanSchema,
+  insertLevelConfigSchema,
   users,
   teams,
   shopItems,
@@ -16,6 +17,7 @@ import {
   inviteTokens,
   companies,
   subscriptionPlans,
+  levelConfigs,
 } from "./schema";
 
 export const errorSchemas = {
@@ -444,6 +446,57 @@ export const api = {
       path: "/api/plans" as const,
       responses: {
         200: z.array(z.custom<typeof subscriptionPlans.$inferSelect>()),
+      },
+    },
+  },
+  levels: {
+    list: {
+      method: "GET" as const,
+      path: "/api/levels" as const,
+      responses: {
+        200: z.array(z.custom<typeof levelConfigs.$inferSelect>()),
+      },
+    },
+    create: {
+      method: "POST" as const,
+      path: "/api/levels" as const,
+      input: z.object({
+        name: z.string().min(1),
+        displayName: z.string().min(1),
+        requiredCoins: z.number().min(0),
+        orderIndex: z.number().min(0),
+        isActive: z.boolean().optional(),
+      }),
+      responses: {
+        201: z.custom<typeof levelConfigs.$inferSelect>(),
+        403: errorSchemas.unauthorized,
+      },
+    },
+    update: {
+      method: "PATCH" as const,
+      path: "/api/levels/:id" as const,
+      input: z.object({
+        name: z.string().min(1).optional(),
+        displayName: z.string().min(1).optional(),
+        requiredCoins: z.number().min(0).optional(),
+        orderIndex: z.number().min(0).optional(),
+        isActive: z.boolean().optional(),
+      }),
+      responses: {
+        200: z.custom<typeof levelConfigs.$inferSelect>(),
+        403: errorSchemas.unauthorized,
+      },
+    },
+    myLevel: {
+      method: "GET" as const,
+      path: "/api/my-level" as const,
+      responses: {
+        200: z.object({
+          totalEarnedCoins: z.number(),
+          currentLevel: z.custom<typeof levelConfigs.$inferSelect>().nullable(),
+          nextLevel: z.custom<typeof levelConfigs.$inferSelect>().nullable(),
+          coinsToNext: z.number(),
+        }),
       },
     },
   },

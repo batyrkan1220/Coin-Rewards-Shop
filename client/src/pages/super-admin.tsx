@@ -10,12 +10,25 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, CreditCard, Users, Plus, Pencil, BarChart3, Globe, Copy, KeyRound } from "lucide-react";
+import { Building2, CreditCard, Users, Plus, Pencil, BarChart3, Globe, Copy, KeyRound, Clock, CalendarPlus, Phone, Calendar } from "lucide-react";
 import type { Company, SubscriptionPlan } from "@shared/schema";
 
 type CompanyWithDetails = Company & { plan: SubscriptionPlan | null; userCount: number; adminUser: { id: number; username: string; name: string } | null };
 
 type Tab = "stats" | "companies" | "plans";
+
+function getTrialDaysLeft(trialEndsAt: string | Date | null | undefined): number | null {
+  if (!trialEndsAt) return null;
+  const end = new Date(trialEndsAt);
+  const now = new Date();
+  const diff = end.getTime() - now.getTime();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+function formatDate(date: string | Date | null | undefined): string {
+  if (!date) return "-";
+  return new Date(date).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
 
 export default function SuperAdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>("stats");
@@ -63,9 +76,19 @@ function StatsTab() {
     return <div className="text-muted-foreground">Загрузка...</div>;
   }
 
+  const trialCompanies = companiesList?.filter(c => {
+    const days = getTrialDaysLeft(c.trialEndsAt);
+    return days !== null && days > 0;
+  }) || [];
+
+  const expiredTrials = companiesList?.filter(c => {
+    const days = getTrialDaysLeft(c.trialEndsAt);
+    return days !== null && days <= 0;
+  }) || [];
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Всего компаний</CardTitle>
@@ -77,7 +100,7 @@ function StatsTab() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Активных компаний</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Активных</CardTitle>
             <Globe className="w-5 h-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -86,11 +109,23 @@ function StatsTab() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Всего пользователей</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Пользователей</CardTitle>
             <Users className="w-5 h-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold" data-testid="text-total-users">{stats?.totalUsers ?? 0}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">На триале</CardTitle>
+            <Clock className="w-5 h-5 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold" data-testid="text-trial-companies">{trialCompanies.length}</div>
+            {expiredTrials.length > 0 && (
+              <p className="text-xs text-destructive mt-1">Истекло: {expiredTrials.length}</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -102,23 +137,31 @@ function StatsTab() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {companiesList.map((c) => (
-                <div key={c.id} className="flex items-center justify-between gap-4 p-3 rounded-lg border">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <Building2 className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                    <div className="min-w-0">
-                      <p className="font-medium truncate">{c.name}</p>
+              {companiesList.map((c) => {
+                const daysLeft = getTrialDaysLeft(c.trialEndsAt);
+                return (
+                  <div key={c.id} className="flex items-center justify-between gap-4 p-3 rounded-lg border">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <Building2 className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{c.name}</p>
+                        <p className="text-xs text-muted-foreground">{c.userCount} польз.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {daysLeft !== null && (
+                        <Badge variant={daysLeft > 0 ? "outline" : "destructive"}>
+                          <Clock className="w-3 h-3 mr-1" />
+                          {daysLeft > 0 ? `${daysLeft} дн.` : "Истёк"}
+                        </Badge>
+                      )}
+                      <Badge variant={c.isActive ? "default" : "secondary"}>
+                        {c.isActive ? "Активна" : "Неактивна"}
+                      </Badge>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant={c.isActive ? "default" : "secondary"}>
-                      {c.isActive ? "Активна" : "Неактивна"}
-                    </Badge>
-                    <Badge variant="outline">{c.userCount} польз.</Badge>
-                    {c.plan && <Badge variant="outline">{c.plan.name}</Badge>}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -134,6 +177,7 @@ function CompaniesTab() {
   const [formData, setFormData] = useState({ name: "", planId: "", adminUsername: "", adminPassword: "", adminName: "" });
   const [credentialsDialog, setCredentialsDialog] = useState<{ open: boolean; companyName: string; username: string; password: string }>({ open: false, companyName: "", username: "", password: "" });
   const [adminCredDialog, setAdminCredDialog] = useState<{ open: boolean; company: CompanyWithDetails | null; newEmail: string; newPassword: string }>({ open: false, company: null, newEmail: "", newPassword: "" });
+  const [trialDialog, setTrialDialog] = useState<{ open: boolean; company: CompanyWithDetails | null; days: string }>({ open: false, company: null, days: "7" });
 
   const { data: companiesList, isLoading } = useQuery<CompanyWithDetails[]>({
     queryKey: ["/api/super/companies"],
@@ -178,6 +222,20 @@ function CompaniesTab() {
       setEditingCompany(null);
       resetForm();
       toast({ title: "Компания обновлена" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Ошибка", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const trialMutation = useMutation({
+    mutationFn: ({ id, trialEndsAt }: { id: number; trialEndsAt: string }) =>
+      apiRequest("PATCH", `/api/super/companies/${id}`, { trialEndsAt }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/super/companies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/super/stats"] });
+      setTrialDialog({ open: false, company: null, days: "7" });
+      toast({ title: "Триал обновлен" });
     },
     onError: (err: any) => {
       toast({ title: "Ошибка", description: err.message, variant: "destructive" });
@@ -248,6 +306,17 @@ function CompaniesTab() {
     });
   };
 
+  const handleTrialSubmit = () => {
+    if (!trialDialog.company) return;
+    const days = parseInt(trialDialog.days);
+    if (isNaN(days) || days < 0) return;
+    const base = trialDialog.company.trialEndsAt
+      ? new Date(Math.max(new Date(trialDialog.company.trialEndsAt).getTime(), Date.now()))
+      : new Date();
+    base.setDate(base.getDate() + days);
+    trialMutation.mutate({ id: trialDialog.company.id, trialEndsAt: base.toISOString() });
+  };
+
   if (isLoading) {
     return <div className="text-muted-foreground">Загрузка...</div>;
   }
@@ -263,61 +332,105 @@ function CompaniesTab() {
       </div>
 
       <div className="space-y-3">
-        {companiesList?.map((company) => (
-          <Card key={company.id}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between gap-4 flex-wrap">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <Building2 className="w-6 h-6 text-muted-foreground flex-shrink-0" />
-                  <div className="min-w-0">
-                    <p className="font-medium truncate" data-testid={`text-company-name-${company.id}`}>{company.name}</p>
-                    {company.adminUser && (
-                      <p className="text-xs text-muted-foreground" data-testid={`text-admin-login-${company.id}`}>
-                        <KeyRound className="w-3 h-3 inline mr-1" />
-                        Админ: {company.adminUser.name} ({company.adminUser.username})
-                      </p>
-                    )}
+        {companiesList?.map((company) => {
+          const daysLeft = getTrialDaysLeft(company.trialEndsAt);
+          return (
+            <Card key={company.id}>
+              <CardContent className="p-4">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-start justify-between gap-4 flex-wrap">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <Building2 className="w-6 h-6 text-muted-foreground flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-medium truncate" data-testid={`text-company-name-${company.id}`}>{company.name}</p>
+                        {company.adminUser && (
+                          <p className="text-xs text-muted-foreground" data-testid={`text-admin-login-${company.id}`}>
+                            <KeyRound className="w-3 h-3 inline mr-1" />
+                            Админ: {company.adminUser.name} ({company.adminUser.username})
+                          </p>
+                        )}
+                        {(company as any).phone && (
+                          <p className="text-xs text-muted-foreground">
+                            <Phone className="w-3 h-3 inline mr-1" />
+                            {(company as any).phone}
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          <Calendar className="w-3 h-3 inline mr-1" />
+                          Создана: {formatDate(company.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" data-testid={`text-user-count-${company.id}`}>
+                        <Users className="w-3 h-3 mr-1" />
+                        {company.userCount} польз.
+                      </Badge>
+                      {company.plan && (
+                        <Badge variant="outline">
+                          <CreditCard className="w-3 h-3 mr-1" />
+                          {company.plan.name}
+                        </Badge>
+                      )}
+                      {daysLeft !== null && (
+                        <Badge
+                          variant={daysLeft > 3 ? "outline" : daysLeft > 0 ? "secondary" : "destructive"}
+                          data-testid={`badge-trial-${company.id}`}
+                        >
+                          <Clock className="w-3 h-3 mr-1" />
+                          {daysLeft > 0
+                            ? `Триал: ${daysLeft} дн.`
+                            : "Триал истёк"
+                          }
+                        </Badge>
+                      )}
+                      <Badge variant={company.isActive ? "default" : "secondary"}>
+                        {company.isActive ? "Активна" : "Неактивна"}
+                      </Badge>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant="outline" data-testid={`text-user-count-${company.id}`}>
-                    <Users className="w-3 h-3 mr-1" />
-                    {company.userCount} польз.
-                  </Badge>
-                  {company.plan && (
-                    <Badge variant="outline">
-                      <CreditCard className="w-3 h-3 mr-1" />
-                      {company.plan.name}
-                    </Badge>
-                  )}
-                  <Badge variant={company.isActive ? "default" : "secondary"}>
-                    {company.isActive ? "Активна" : "Неактивна"}
-                  </Badge>
-                  <div className="flex items-center gap-1">
-                    <Switch
-                      checked={company.isActive || false}
-                      onCheckedChange={() => toggleActive(company)}
-                      data-testid={`switch-active-${company.id}`}
-                    />
-                  </div>
-                  {company.adminUser && (
+                  <div className="flex items-center gap-1 flex-wrap border-t pt-2">
                     <Button
                       variant="outline"
-                      size="icon"
-                      onClick={() => setAdminCredDialog({ open: true, company, newEmail: "", newPassword: "" })}
-                      data-testid={`button-admin-cred-${company.id}`}
+                      size="sm"
+                      onClick={() => setTrialDialog({ open: true, company, days: "7" })}
+                      className="gap-1"
+                      data-testid={`button-trial-${company.id}`}
                     >
-                      <KeyRound className="w-4 h-4" />
+                      <CalendarPlus className="w-3.5 h-3.5" />
+                      Триал
                     </Button>
-                  )}
-                  <Button variant="outline" size="icon" onClick={() => openEdit(company)} data-testid={`button-edit-company-${company.id}`}>
-                    <Pencil className="w-4 h-4" />
-                  </Button>
+                    <div className="flex items-center gap-1 ml-1">
+                      <Switch
+                        checked={company.isActive || false}
+                        onCheckedChange={() => toggleActive(company)}
+                        data-testid={`switch-active-${company.id}`}
+                      />
+                      <span className="text-xs text-muted-foreground">Активна</span>
+                    </div>
+                    <div className="flex-1" />
+                    {company.adminUser && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAdminCredDialog({ open: true, company, newEmail: "", newPassword: "" })}
+                        className="gap-1"
+                        data-testid={`button-admin-cred-${company.id}`}
+                      >
+                        <KeyRound className="w-3.5 h-3.5" />
+                        Пароль админа
+                      </Button>
+                    )}
+                    <Button variant="outline" size="sm" onClick={() => openEdit(company)} className="gap-1" data-testid={`button-edit-company-${company.id}`}>
+                      <Pencil className="w-3.5 h-3.5" />
+                      Изменить
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          );
+        })}
         {(!companiesList || companiesList.length === 0) && (
           <p className="text-muted-foreground text-center py-8">Нет компаний</p>
         )}
@@ -395,6 +508,94 @@ function CompaniesTab() {
               data-testid="button-submit-company"
             >
               {(createMutation.isPending || updateMutation.isPending) ? "Сохранение..." : editingCompany ? "Сохранить" : "Создать"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={trialDialog.open} onOpenChange={(open) => { if (!open) setTrialDialog({ open: false, company: null, days: "7" }); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Управление триалом</DialogTitle>
+            <DialogDescription>
+              Компания: {trialDialog.company?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {trialDialog.company?.trialEndsAt && (
+              <div className="p-3 rounded-lg bg-muted/50 space-y-1">
+                <p className="text-sm text-muted-foreground">Текущий триал до:</p>
+                <p className="font-medium" data-testid="text-current-trial">{formatDate(trialDialog.company.trialEndsAt)}</p>
+                {(() => {
+                  const days = getTrialDaysLeft(trialDialog.company!.trialEndsAt);
+                  if (days === null) return null;
+                  return (
+                    <p className={`text-sm font-medium ${days > 0 ? "text-green-600" : "text-destructive"}`}>
+                      {days > 0 ? `Осталось ${days} дн.` : `Истёк ${Math.abs(days)} дн. назад`}
+                    </p>
+                  );
+                })()}
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Добавить дней</Label>
+              <Input
+                type="number"
+                min="0"
+                value={trialDialog.days}
+                onChange={(e) => setTrialDialog(p => ({ ...p, days: e.target.value }))}
+                placeholder="7"
+                data-testid="input-trial-days"
+              />
+              <p className="text-xs text-muted-foreground">
+                Новая дата окончания: {(() => {
+                  const days = parseInt(trialDialog.days);
+                  if (isNaN(days)) return "-";
+                  const base = trialDialog.company?.trialEndsAt
+                    ? new Date(Math.max(new Date(trialDialog.company.trialEndsAt).getTime(), Date.now()))
+                    : new Date();
+                  base.setDate(base.getDate() + days);
+                  return formatDate(base);
+                })()}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setTrialDialog(p => ({ ...p, days: "3" }))}
+              >
+                3 дня
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setTrialDialog(p => ({ ...p, days: "7" }))}
+              >
+                7 дней
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setTrialDialog(p => ({ ...p, days: "14" }))}
+              >
+                14 дней
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setTrialDialog(p => ({ ...p, days: "30" }))}
+              >
+                30 дней
+              </Button>
+            </div>
+            <Button
+              className="w-full"
+              onClick={handleTrialSubmit}
+              disabled={trialMutation.isPending}
+              data-testid="button-submit-trial"
+            >
+              {trialMutation.isPending ? "Сохранение..." : "Продлить триал"}
             </Button>
           </div>
         </DialogContent>
@@ -548,25 +749,24 @@ function PlansTab() {
     setDialogOpen(true);
   };
 
-  const handleSubmit = () => {
-    const payload = {
-      name: formData.name,
-      maxUsers: Number(formData.maxUsers),
-      priceMonthly: Number(formData.priceMonthly),
-    };
-
-    if (editingPlan) {
-      updateMutation.mutate({ id: editingPlan.id, data: payload });
-    } else {
-      createMutation.mutate(payload);
-    }
-  };
-
   const toggleActive = (plan: SubscriptionPlan) => {
     updateMutation.mutate({
       id: plan.id,
       data: { isActive: !plan.isActive },
     });
+  };
+
+  const handleSubmit = () => {
+    const data = {
+      name: formData.name,
+      maxUsers: Number(formData.maxUsers),
+      priceMonthly: Number(formData.priceMonthly),
+    };
+    if (editingPlan) {
+      updateMutation.mutate({ id: editingPlan.id, data });
+    } else {
+      createMutation.mutate(data);
+    }
   };
 
   if (isLoading) {
@@ -583,48 +783,45 @@ function PlansTab() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="space-y-3">
         {plans?.map((plan) => (
           <Card key={plan.id}>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-              <CardTitle className="text-base" data-testid={`text-plan-name-${plan.id}`}>{plan.name}</CardTitle>
-              <div className="flex items-center gap-1">
-                <Switch
-                  checked={plan.isActive || false}
-                  onCheckedChange={() => toggleActive(plan)}
-                  data-testid={`switch-plan-active-${plan.id}`}
-                />
-                <Button variant="outline" size="icon" onClick={() => openEdit(plan)} data-testid={`button-edit-plan-${plan.id}`}>
-                  <Pencil className="w-4 h-4" />
-                </Button>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="min-w-0">
+                  <p className="font-medium" data-testid={`text-plan-name-${plan.id}`}>{plan.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    До {plan.maxUsers} польз. / {plan.priceMonthly > 0 ? `${plan.priceMonthly} KZT/мес` : "Бесплатно"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant={plan.isActive ? "default" : "secondary"}>
+                    {plan.isActive ? "Активен" : "Неактивен"}
+                  </Badge>
+                  <Switch
+                    checked={plan.isActive || false}
+                    onCheckedChange={() => toggleActive(plan)}
+                    data-testid={`switch-plan-active-${plan.id}`}
+                  />
+                  <Button variant="outline" size="icon" onClick={() => openEdit(plan)} data-testid={`button-edit-plan-${plan.id}`}>
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm text-muted-foreground">Макс. пользователей</span>
-                <span className="font-medium">{plan.maxUsers}</span>
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm text-muted-foreground">Цена / мес</span>
-                <span className="font-medium">{plan.priceMonthly} KZT</span>
-              </div>
-              <Badge variant={plan.isActive ? "default" : "secondary"}>
-                {plan.isActive ? "Активен" : "Неактивен"}
-              </Badge>
             </CardContent>
           </Card>
         ))}
+        {(!plans || plans.length === 0) && (
+          <p className="text-muted-foreground text-center py-8">Нет тарифов</p>
+        )}
       </div>
-      {(!plans || plans.length === 0) && (
-        <p className="text-muted-foreground text-center py-8">Нет тарифов</p>
-      )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingPlan ? "Редактировать тариф" : "Создать тариф"}</DialogTitle>
             <DialogDescription>
-              {editingPlan ? "Измените параметры тарифа" : "Заполните параметры нового тарифа"}
+              {editingPlan ? "Измените параметры тарифа" : "Заполните данные для нового тарифа"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -643,17 +840,17 @@ function PlansTab() {
                 type="number"
                 value={formData.maxUsers}
                 onChange={(e) => setFormData(p => ({ ...p, maxUsers: e.target.value }))}
-                min="1"
+                placeholder="50"
                 data-testid="input-plan-max-users"
               />
             </div>
             <div className="space-y-2">
-              <Label>Цена в месяц (KZT)</Label>
+              <Label>Цена (KZT/мес)</Label>
               <Input
                 type="number"
                 value={formData.priceMonthly}
                 onChange={(e) => setFormData(p => ({ ...p, priceMonthly: e.target.value }))}
-                min="0"
+                placeholder="0"
                 data-testid="input-plan-price"
               />
             </div>

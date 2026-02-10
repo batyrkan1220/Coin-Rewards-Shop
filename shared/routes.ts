@@ -432,7 +432,6 @@ export const api = {
       adminEmail: z.string().email("Некорректный email"),
       adminPassword: z.string().min(6, "Минимум 6 символов"),
       adminName: z.string().min(1),
-      gender: z.enum(["male", "female"]),
     }),
     responses: {
       201: z.custom<typeof users.$inferSelect>(),
@@ -479,6 +478,7 @@ export const api = {
           name: z.string().min(1).optional(),
           planId: z.number().nullable().optional(),
           isActive: z.boolean().optional(),
+          trialEndsAt: z.string().optional(),
         }),
         responses: {
           200: z.custom<typeof companies.$inferSelect>(),

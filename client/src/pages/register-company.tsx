@@ -2,8 +2,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -21,7 +19,6 @@ const registerCompanySchema = z.object({
   adminEmail: z.string().email("Некорректный email"),
   adminPassword: z.string().min(6, "Минимум 6 символов"),
   adminName: z.string().min(1, "Введите имя"),
-  gender: z.enum(["male", "female"], { required_error: "Выберите пол" }),
 });
 
 type RegisterCompanyForm = z.infer<typeof registerCompanySchema>;
@@ -193,32 +190,6 @@ export default function RegisterCompanyPage() {
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="gender"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Пол</FormLabel>
-                        <FormControl>
-                          <RadioGroup
-                            onValueChange={field.onChange}
-                            value={field.value}
-                            className="flex gap-6"
-                          >
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="male" id="gender-male" data-testid="radio-gender-male" />
-                              <Label htmlFor="gender-male">Мужской</Label>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <RadioGroupItem value="female" id="gender-female" data-testid="radio-gender-female" />
-                              <Label htmlFor="gender-female">Женский</Label>
-                            </div>
-                          </RadioGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                 </div>
 
                 {registerMutation.error && (

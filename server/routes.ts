@@ -168,7 +168,12 @@ export async function registerRoutes(
   app.patch(api.superAdmin.companies.update.path, requireSuperAdmin, async (req, res) => {
     try {
       const input = api.superAdmin.companies.update.input.parse(req.body);
-      const company = await storage.updateCompany(Number(req.params.id), input);
+      const updateData: any = {};
+      if (input.name !== undefined) updateData.name = input.name;
+      if (input.planId !== undefined) updateData.planId = input.planId;
+      if (input.isActive !== undefined) updateData.isActive = input.isActive;
+      if (input.trialEndsAt !== undefined) updateData.trialEndsAt = new Date(input.trialEndsAt);
+      const company = await storage.updateCompany(Number(req.params.id), updateData);
       await audit(req.user!.id, "UPDATE_COMPANY", "company", company.id, input);
       res.json(company);
     } catch (err) {
@@ -293,7 +298,6 @@ export async function registerRoutes(
         name: input.adminName,
         role: ROLES.ADMIN,
         companyId: company.id,
-        gender: input.gender,
         isActive: true,
         teamId: null,
       });

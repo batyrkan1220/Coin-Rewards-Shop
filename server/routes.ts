@@ -44,6 +44,40 @@ export async function registerRoutes(
     }
   };
 
+  const createTemplateShopItems = async (companyId: number) => {
+    const templates = [
+      { title: "Билет в кино", description: "Билет на любой фильм в кинотеатре. Действителен 30 дней.", priceCoins: 50, stock: 20 },
+      { title: "Сертификат Золотое Яблоко 5 000 KZT", description: "Подарочный сертификат на 5 000 KZT в магазин Золотое Яблоко. Косметика, парфюмерия и уход.", priceCoins: 100, stock: 10 },
+      { title: "Сертификат Золотое Яблоко 10 000 KZT", description: "Подарочный сертификат на 10 000 KZT в магазин Золотое Яблоко.", priceCoins: 200, stock: 5 },
+      { title: "Конная прогулка", description: "Конная прогулка на 1 час в конном клубе. Инструктор и экипировка включены.", priceCoins: 150, stock: 10 },
+      { title: "Сертификат Glovo 3 000 KZT", description: "Промокод на 3 000 KZT для заказа еды через Glovo.", priceCoins: 60, stock: 15 },
+      { title: "Сертификат Wolt 5 000 KZT", description: "Промокод на 5 000 KZT для заказа еды и продуктов через Wolt.", priceCoins: 100, stock: 10 },
+      { title: "Абонемент в тренажерный зал (1 мес)", description: "Месячный абонемент в фитнес-клуб. Тренажерный зал, групповые занятия.", priceCoins: 250, stock: 5 },
+      { title: "Кофейный абонемент (10 чашек)", description: "Абонемент на 10 чашек кофе в партнерской кофейне. Любой напиток.", priceCoins: 40, stock: 20 },
+      { title: "Квест-комната (команда до 4 чел.)", description: "Сертификат на квест-комнату для команды до 4 человек. 60 минут приключений.", priceCoins: 200, stock: 8 },
+      { title: "Дополнительный выходной", description: "Один дополнительный оплачиваемый выходной день. Согласовывается с руководителем.", priceCoins: 300, stock: 5 },
+      { title: "Сертификат Kaspi Магазин 5 000 KZT", description: "Подарочный сертификат на 5 000 KZT в Kaspi Магазин. Электроника, товары для дома.", priceCoins: 100, stock: 10 },
+      { title: "Сертификат Kaspi Магазин 10 000 KZT", description: "Подарочный сертификат на 10 000 KZT в Kaspi Магазин.", priceCoins: 200, stock: 5 },
+      { title: "Боулинг (2 часа)", description: "Аренда дорожки для боулинга на 2 часа для компании до 6 человек.", priceCoins: 180, stock: 8 },
+      { title: "Фирменная кружка", description: "Стильная фирменная кружка с логотипом компании. Керамика, 350 мл.", priceCoins: 30, stock: 30 },
+      { title: "Фирменный худи", description: "Теплый худи с логотипом компании. Размеры S-XXL. 100% хлопок.", priceCoins: 150, stock: 10 },
+      { title: "Фирменная футболка", description: "Качественная футболка с логотипом компании. Размеры S-XXL.", priceCoins: 80, stock: 15 },
+      { title: "Настольная игра", description: "Популярная настольная игра для вечера с друзьями или коллегами.", priceCoins: 70, stock: 10 },
+      { title: "Сертификат на массаж", description: "Сеанс массажа 60 минут в партнерском SPA-салоне.", priceCoins: 200, stock: 8 },
+      { title: "Портативная колонка", description: "Bluetooth-колонка для музыки. Компактная, водозащита IPX5.", priceCoins: 350, stock: 3 },
+      { title: "Ланч с руководителем", description: "Обед в ресторане с руководителем компании. Отличная возможность для общения.", priceCoins: 120, stock: 5 },
+    ];
+
+    for (const item of templates) {
+      await storage.createShopItem({
+        ...item,
+        isActive: true,
+        imageUrl: null,
+        companyId,
+      });
+    }
+  };
+
   // ==========================================
   // SUPER ADMIN ROUTES
   // ==========================================
@@ -94,6 +128,7 @@ export async function registerRoutes(
         adminCredentials = { username: input.adminUsername, password: input.adminPassword, name: input.adminName };
       }
 
+      await createTemplateShopItems(company.id);
       await audit(req.user!.id, "CREATE_COMPANY", "company", company.id, { name: company.name });
       res.status(201).json({ company, adminCredentials });
     } catch (err) {
@@ -234,6 +269,8 @@ export async function registerRoutes(
         isActive: true,
         teamId: null,
       });
+
+      await createTemplateShopItems(company.id);
 
       req.login(adminUser, (err: any) => {
         if (err) return res.status(500).json({ message: "Ошибка авторизации" });

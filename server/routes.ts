@@ -244,17 +244,17 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Пользователь с таким email уже существует" });
       }
 
-      const plan = await storage.getPlan(input.planId);
-      if (!plan || !plan.isActive) {
-        return res.status(400).json({ message: "Выбранный тарифный план недоступен" });
-      }
+      const trialEndsAt = new Date();
+      trialEndsAt.setDate(trialEndsAt.getDate() + 3);
 
       const slug = input.companyName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `company-${Date.now()}`;
       const company = await storage.createCompany({
         name: input.companyName,
         subdomain: slug + "-" + Date.now(),
-        planId: input.planId,
+        planId: null,
         supportEmail: null,
+        phone: input.phone,
+        trialEndsAt,
         isActive: true,
       });
 

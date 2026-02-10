@@ -2,24 +2,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Building2, Loader2, Coins, Check } from "lucide-react";
+import { Building2, Loader2, Phone, Check } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { SubscriptionPlan } from "@shared/schema";
 
 const registerCompanySchema = z.object({
   companyName: z.string().min(1, "Введите название компании"),
-  planId: z.number({ required_error: "Выберите тариф" }),
+  phone: z.string().min(6, "Введите номер телефона"),
   adminEmail: z.string().email("Некорректный email"),
   adminPassword: z.string().min(6, "Минимум 6 символов"),
   adminName: z.string().min(1, "Введите имя"),
@@ -36,10 +34,6 @@ export default function RegisterCompanyPage() {
   useEffect(() => {
     if (user) setLocation("/dashboard");
   }, [user, setLocation]);
-
-  const { data: plans, isLoading: plansLoading } = useQuery<SubscriptionPlan[]>({
-    queryKey: ["/api/plans"],
-  });
 
   const registerMutation = useMutation({
     mutationFn: async (data: RegisterCompanyForm) => {
@@ -60,6 +54,7 @@ export default function RegisterCompanyPage() {
     resolver: zodResolver(registerCompanySchema),
     defaultValues: {
       companyName: "",
+      phone: "",
       adminEmail: "",
       adminPassword: "",
       adminName: "",
@@ -70,14 +65,9 @@ export default function RegisterCompanyPage() {
     registerMutation.mutate(values);
   }
 
-  const formatPrice = (price: number) => {
-    if (price === 0) return "Бесплатно";
-    return `${price.toLocaleString("ru-RU")} KZT/мес`;
-  };
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
-      <div className="w-full max-w-2xl">
+      <div className="w-full max-w-lg">
         <div className="flex justify-center mb-8">
           <div className="p-4 bg-primary/10 rounded-2xl animate-in zoom-in duration-500">
             <Building2 className="w-12 h-12 text-primary" />
@@ -87,9 +77,20 @@ export default function RegisterCompanyPage() {
         <Card className="border-border/50 shadow-2xl shadow-black/5">
           <CardHeader className="text-center pb-2">
             <CardTitle className="text-2xl font-display font-bold" data-testid="text-register-title">Регистрация компании</CardTitle>
-            <CardDescription>Создайте аккаунт для вашей компании на платформе tabys</CardDescription>
+            <CardDescription>Создайте аккаунт для вашей компании на платформе Tabys</CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="flex flex-wrap items-center justify-center gap-4 mb-6 text-sm text-muted-foreground">
+              <div className="flex items-center gap-1.5">
+                <Check className="w-4 h-4 text-green-600" />
+                3 дня бесплатно
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Check className="w-4 h-4 text-green-600" />
+                Без привязки карты
+              </div>
+            </div>
+
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <div className="space-y-4">
@@ -111,45 +112,16 @@ export default function RegisterCompanyPage() {
 
                   <FormField
                     control={form.control}
-                    name="planId"
+                    name="phone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Тарифный план</FormLabel>
-                        {plansLoading ? (
-                          <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                            <Loader2 className="w-4 h-4 animate-spin" /> Загрузка планов...
+                        <FormLabel>Номер телефона</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Input placeholder="+7 (777) 123-45-67" {...field} className="h-11 bg-muted/30 pl-10" data-testid="input-phone" />
                           </div>
-                        ) : (
-                          <div className="grid gap-3">
-                            {plans?.map((plan) => (
-                              <div
-                                key={plan.id}
-                                className={`relative flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all ${
-                                  field.value === plan.id
-                                    ? "border-primary bg-primary/5 shadow-sm"
-                                    : "border-border hover:border-primary/50"
-                                }`}
-                                onClick={() => field.onChange(plan.id)}
-                                data-testid={`plan-option-${plan.id}`}
-                              >
-                                <div className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                                  field.value === plan.id ? "border-primary bg-primary" : "border-muted-foreground/30"
-                                }`}>
-                                  {field.value === plan.id && <Check className="w-3 h-3 text-primary-foreground" />}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                                    <span className="font-medium">{plan.name}</span>
-                                    <span className="text-sm font-semibold text-primary">{formatPrice(plan.priceMonthly)}</span>
-                                  </div>
-                                  <p className="text-sm text-muted-foreground mt-1">
-                                    До {plan.maxUsers} пользователей
-                                  </p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -237,7 +209,7 @@ export default function RegisterCompanyPage() {
 
                 <Button type="submit" className="w-full h-11 text-base shadow-lg shadow-primary/20" disabled={registerMutation.isPending} data-testid="button-register">
                   {registerMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                  Зарегистрировать компанию
+                  Начать бесплатно на 3 дня
                 </Button>
 
                 <p className="text-center text-sm text-muted-foreground">

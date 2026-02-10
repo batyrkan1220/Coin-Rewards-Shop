@@ -11,7 +11,6 @@ import {
   Users,
   Shield,
   BarChart3,
-  Gift,
   Zap,
   Building2,
   Check,
@@ -24,21 +23,10 @@ import {
   Globe,
   HeadphonesIcon,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import type { SubscriptionPlan } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 
 export default function HomePage() {
   const { user } = useAuth();
-
-  const { data: plans } = useQuery<SubscriptionPlan[]>({
-    queryKey: ["/api/plans"],
-  });
-
-  const formatPrice = (price: number) => {
-    if (price === 0) return "Бесплатно";
-    return `${price.toLocaleString("ru-RU")} KZT`;
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -53,7 +41,6 @@ export default function HomePage() {
           <nav className="hidden md:flex items-center gap-6">
             <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-features">Возможности</a>
             <a href="#how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-how">Как это работает</a>
-            <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-pricing">Тарифы</a>
             <a href="#about" className="text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-about">О нас</a>
           </nav>
           <div className="flex items-center gap-2">
@@ -97,7 +84,7 @@ export default function HomePage() {
               Мотивируйте команду. Растите продажи.
             </h1>
             <p className="mt-6 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed" data-testid="text-hero-description">
-              tabys -- это SaaS-платформа для компаний, где сотрудники зарабатывают монеты за достижения и обменивают их на реальные подарки. Повышайте вовлеченность, управляйте обучением и отслеживайте результаты.
+              Tabys -- это SaaS-платформа для компаний, где сотрудники зарабатывают монеты за достижения и обменивают их на реальные подарки. Повышайте вовлеченность, управляйте обучением и отслеживайте результаты.
             </p>
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
               {user ? (
@@ -127,7 +114,7 @@ export default function HomePage() {
             <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
               <div className="flex items-center gap-1.5">
                 <Check className="w-4 h-4 text-green-600" />
-                Бесплатный старт
+                3 дня бесплатно
               </div>
               <div className="flex items-center gap-1.5">
                 <Check className="w-4 h-4 text-green-600" />
@@ -272,7 +259,7 @@ export default function HomePage() {
               </div>
               <h3 className="text-lg font-display font-bold text-foreground mb-3">Зарегистрируйте компанию</h3>
               <p className="text-muted-foreground text-sm leading-relaxed">
-                Создайте аккаунт компании, выберите тариф и получите доступ к панели администратора. 20 товаров-шаблонов уже в магазине.
+                Создайте аккаунт компании и получите 3 дня бесплатного доступа. 20 товаров-шаблонов уже в магазине.
               </p>
             </div>
 
@@ -341,95 +328,25 @@ export default function HomePage() {
         </div>
       </section>
 
-      {plans && plans.length > 0 && (
-        <section id="pricing" className="py-16 sm:py-24 bg-muted/30 border-t border-border/50">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <div className="text-center mb-16">
-              <Badge variant="secondary" className="mb-4" data-testid="badge-pricing">Тарифы</Badge>
-              <h2 className="text-3xl sm:text-4xl font-display font-bold text-foreground" data-testid="text-pricing-title">
-                Прозрачные цены для любого бизнеса
-              </h2>
-              <p className="mt-4 text-muted-foreground text-lg max-w-xl mx-auto">
-                Начните бесплатно и масштабируйтесь по мере роста команды
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-              {plans.filter(p => p.isActive).map((plan, index) => (
-                <Card key={plan.id} className={`relative ${index === 1 ? "border-primary shadow-lg shadow-primary/10" : ""}`} data-testid={`card-plan-${plan.id}`}>
-                  {index === 1 && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <Badge className="bg-primary text-primary-foreground">Популярный</Badge>
-                    </div>
-                  )}
-                  <CardContent className="pt-8 pb-6">
-                    <div className="text-center mb-6">
-                      <h3 className="text-lg font-display font-bold text-foreground mb-2">{plan.name}</h3>
-                      <div className="text-3xl font-display font-bold text-foreground">
-                        {formatPrice(plan.priceMonthly)}
-                      </div>
-                      {plan.priceMonthly > 0 && <div className="text-sm text-muted-foreground mt-1">в месяц</div>}
-                    </div>
-                    <div className="space-y-3 mb-6">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Check className="w-4 h-4 text-green-600 shrink-0" />
-                        <span>До {plan.maxUsers} пользователей</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Check className="w-4 h-4 text-green-600 shrink-0" />
-                        <span>Магазин наград</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Check className="w-4 h-4 text-green-600 shrink-0" />
-                        <span>Система монет</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Check className="w-4 h-4 text-green-600 shrink-0" />
-                        <span>Обучение и уроки</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Check className="w-4 h-4 text-green-600 shrink-0" />
-                        <span>20 товаров-шаблонов</span>
-                      </div>
-                      {plan.priceMonthly > 0 && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Check className="w-4 h-4 text-green-600 shrink-0" />
-                          <span>Приоритетная поддержка</span>
-                        </div>
-                      )}
-                    </div>
-                    <Link href="/register-company">
-                      <Button className="w-full" variant={index === 1 ? "default" : "outline"} data-testid={`button-plan-${plan.id}`}>
-                        {plan.priceMonthly === 0 ? "Начать бесплатно" : "Выбрать тариф"}
-                      </Button>
-                    </Link>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      <section id="about" className="py-16 sm:py-24 border-t border-border/50">
+      <section id="about" className="py-16 sm:py-24 bg-muted/30 border-t border-border/50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-16">
             <Badge variant="secondary" className="mb-4" data-testid="badge-about">О платформе</Badge>
             <h2 className="text-3xl sm:text-4xl font-display font-bold text-foreground" data-testid="text-about-title">
-              Почему tabys?
+              Почему Tabys?
             </h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-4xl mx-auto">
             <div className="space-y-6">
               <p className="text-muted-foreground leading-relaxed">
-                <span className="font-display font-bold text-foreground">tabys</span> -- это казахстанская платформа корпоративной мотивации, созданная для современных компаний. Мы помогаем бизнесу повышать продуктивность и вовлеченность сотрудников через прозрачную систему поощрений.
+                <span className="font-display font-bold text-foreground">Tabys</span> -- это казахстанская платформа корпоративной мотивации, созданная для современных компаний. Мы помогаем бизнесу повышать продуктивность и вовлеченность сотрудников через прозрачную систему поощрений.
               </p>
               <p className="text-muted-foreground leading-relaxed">
                 Платформа разработана с учетом потребностей отделов продаж, где мотивация команды напрямую влияет на выручку. Менеджеры зарабатывают монеты за реальные результаты и обменивают их на подарки, которые выбирают сами.
               </p>
               <p className="text-muted-foreground leading-relaxed">
-                Мы верим, что признание достижений -- ключ к построению сильной команды. tabys делает этот процесс простым, прозрачным и увлекательным для каждого сотрудника.
+                Мы верим, что признание достижений -- ключ к построению сильной команды. Tabys делает этот процесс простым, прозрачным и увлекательным для каждого сотрудника.
               </p>
             </div>
             <div className="space-y-4">
@@ -473,7 +390,7 @@ export default function HomePage() {
             Готовы мотивировать команду?
           </h2>
           <p className="text-lg opacity-80 max-w-xl mx-auto mb-8">
-            Зарегистрируйте компанию бесплатно и начните награждать сотрудников уже сегодня. Без ограничений по времени на бесплатном тарифе.
+            Зарегистрируйте компанию и получите 3 дня бесплатного доступа ко всем возможностям Tabys. Без привязки карты.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/register-company">
@@ -504,7 +421,6 @@ export default function HomePage() {
               <h4 className="font-display font-bold text-foreground mb-3 text-sm">Платформа</h4>
               <div className="space-y-2 text-sm text-muted-foreground">
                 <a href="#features" className="block hover:text-foreground transition-colors">Возможности</a>
-                <a href="#pricing" className="block hover:text-foreground transition-colors">Тарифы</a>
                 <a href="#how-it-works" className="block hover:text-foreground transition-colors">Как это работает</a>
                 <a href="#about" className="block hover:text-foreground transition-colors">О нас</a>
               </div>
@@ -519,7 +435,7 @@ export default function HomePage() {
           </div>
           <div className="border-t border-border/50 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-sm text-muted-foreground">
-              2025 tabys. Все права защищены.
+              2025 Tabys. Все права защищены.
             </p>
             <p className="text-sm text-muted-foreground">
               Платформа мотивации для бизнеса

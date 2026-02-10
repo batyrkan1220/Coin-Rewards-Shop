@@ -128,7 +128,21 @@ client/src/
 - Password change requires current password verification
 - Shows balance, team, and role information
 
+## Branding
+- Logo text: "tabys" (lowercase) in header/sidebar/footer
+- All other text references: "Tabys" (capital T) in descriptions, about section, copyright, etc.
+- Platform name in browser title: "tabys"
+
+## Company Registration
+- New companies get 3-day free trial (no plan selection required)
+- Registration form collects: company name, phone number, admin name, email, password, gender
+- Companies table has phone and trialEndsAt fields
+- 20 template shop items auto-created for new companies
+
 ## Recent Changes
+- 2026-02-10: Removed pricing/tariff section from homepage, added phone number to registration, free 3-day trial for all new companies, "Tabys" branding (capital T in text, lowercase in logo)
+- 2026-02-10: Redesigned homepage with marketing sections: hero, stats, features, how-it-works, audience, about, CTA
+- 2026-02-10: Added 20 template shop items auto-created for new companies
 - 2026-02-09: Multi-tenant SaaS transformation: added SUPER_ADMIN role, companies table, subscription_plans table, company-scoped data isolation, Super Admin dashboard with Statistics/Companies/Plans tabs
 - 2026-02-09: Added invite usage limits (configurable per link) and gender selection at registration with gender-specific avatars
 - 2026-02-09: Added invite token system: admin creates secret registration links, registration page, admin Invites tab with create/copy/deactivate

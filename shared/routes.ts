@@ -428,7 +428,7 @@ export const api = {
     path: "/api/register-company" as const,
     input: z.object({
       companyName: z.string().min(1),
-      planId: z.number(),
+      phone: z.string().min(6, "Введите номер телефона"),
       adminEmail: z.string().email("Некорректный email"),
       adminPassword: z.string().min(6, "Минимум 6 символов"),
       adminName: z.string().min(1),

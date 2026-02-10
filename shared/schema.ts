@@ -57,6 +57,8 @@ export const companies = pgTable("companies", {
   planId: integer("plan_id").references(() => subscriptionPlans.id),
   isActive: boolean("is_active").default(true),
   supportEmail: text("support_email"),
+  phone: text("phone"),
+  trialEndsAt: timestamp("trial_ends_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

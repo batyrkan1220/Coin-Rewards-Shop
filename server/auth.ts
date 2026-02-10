@@ -7,7 +7,7 @@ import connectPg from "connect-pg-simple";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { User } from "@shared/schema";
+import { User, ROLES } from "@shared/schema";
 import { pool } from "./db";
 
 const scryptAsync = promisify(scrypt);
@@ -29,6 +29,14 @@ async function comparePasswords(supplied: string, stored: string) {
   const hashedBuf = Buffer.from(hashed, "hex");
   const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
   return timingSafeEqual(hashedBuf, suppliedBuf);
+}
+
+async function isCompanyActive(user: User): Promise<boolean> {
+  if (!user.companyId) return true;
+  if (user.role === ROLES.SUPER_ADMIN) return true;
+  const company = await storage.getCompany(user.companyId);
+  if (!company) return false;
+  return company.isActive;
 }
 
 export function setupAuth(app: Express) {
@@ -56,9 +64,11 @@ export function setupAuth(app: Express) {
         const user = await storage.getUserByUsername(username);
         if (!user || !(await comparePasswords(password, user.password))) {
           return done(null, false);
-        } else {
-          return done(null, user);
         }
+        if (!(await isCompanyActive(user))) {
+          return done(null, false);
+        }
+        return done(null, user);
       } catch (err) {
         return done(err);
       }
@@ -69,6 +79,9 @@ export function setupAuth(app: Express) {
   passport.deserializeUser(async (id: number, done) => {
     try {
       const user = await storage.getUser(id);
+      if (user && !(await isCompanyActive(user))) {
+        return done(null, false);
+      }
       done(null, user);
     } catch (err) {
       done(err);
@@ -99,10 +112,15 @@ export function setupAuth(app: Express) {
     });
   });
 
-  app.get("/api/user", (req, res) => {
+  app.get("/api/user", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Не авторизован" });
     }
-    res.json(sanitizeUser(req.user as User));
+    const user = req.user as User;
+    if (!(await isCompanyActive(user))) {
+      req.logout(() => {});
+      return res.status(403).json({ message: "Компания деактивирована" });
+    }
+    res.json(sanitizeUser(user));
   });
 }
